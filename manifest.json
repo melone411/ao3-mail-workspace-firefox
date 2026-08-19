@@ -1,0 +1,49 @@
+{
+  "manifest_version": 2,
+  "name": "AO3 Mail Workspace",
+  "version": "1.0.9",
+  "description": "把 AO3 页面显示成低调的桌面邮件工作界面。",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ao3-mail-workspace@local",
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://archiveofourown.org/*",
+        "*://www.archiveofourown.org/*"
+      ],
+      "css": ["mail-workspace.css"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_action": {
+    "default_title": "切换 AO3 邮件工作界面",
+    "default_icon": "icons/mail.svg"
+  },
+  "commands": {
+    "toggle-mail-workspace": {
+      "suggested_key": {
+        "default": "Alt+Shift+M"
+      },
+      "description": "切换邮件工作界面"
+    }
+  },
+  "icons": {
+    "48": "icons/mail.svg",
+    "96": "icons/mail.svg"
+  }
+}

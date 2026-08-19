@@ -1,0 +1,140 @@
+:root.ao3mail-active { background: #fff !important; overflow: hidden; }
+:root.ao3mail-active body { margin: 0 !important; padding: 0 !important; min-width: 0 !important; background: #fff !important; color: #242424; font-family: "Segoe UI", "Microsoft YaHei UI", Arial, sans-serif !important; }
+
+.ao3mail-shell, .ao3mail-shell * { box-sizing: border-box; }
+.ao3mail-shell { --blue:#0f6cbd; --pale:#eff6fc; --line:#e1dfdd; --ink:#242424; width:100%; min-width:0; height:100vh; overflow:hidden; background:#fff; font:14px/1.35 "Segoe UI", "Microsoft YaHei UI", Arial, sans-serif; color:var(--ink); }
+.ao3mail-shell button,.ao3mail-shell input { box-sizing:border-box; font-family:"Segoe UI","Microsoft YaHei UI",Arial,sans-serif !important; line-height:normal !important; }
+.ao3mail-topbar { min-width:0; height:48px; display:flex; align-items:center; gap:12px; padding:0 14px 0 8px; color:#fff; background:#0f548c; overflow:hidden; }
+.ao3mail-app-grid { width:38px; border:0; color:#fff; background:transparent; font-size:26px; cursor:pointer; }
+.ao3mail-brand { font-weight:600; font-size:16px; letter-spacing:.2px; }
+.ao3mail-search { width:min(46vw,620px); min-width:140px; margin:auto; height:32px; display:flex; align-items:center; gap:9px; padding:0 12px; background:#fff; border-radius:4px; color:#5f5f5f; }
+.ao3mail-search-button { flex:0 0 auto; margin:0; padding:0; border:0; background:transparent; color:#5f5f5f; font:18px/1 "Segoe UI Symbol","Segoe UI",sans-serif; cursor:pointer; box-shadow:none; }
+.ao3mail-search-button:hover,.ao3mail-search-button:focus { background:transparent; color:#0f6cbd; outline:0; }
+.ao3mail-search input { width:100%; border:0; outline:0; background:transparent; font:14px "Segoe UI","Microsoft YaHei UI",sans-serif; }
+.ao3mail-presence { font-size:12px; opacity:.86; white-space:nowrap; }
+.ao3mail-language { flex:0 0 auto; display:inline-flex !important; align-items:center !important; justify-content:center !important; width:42px !important; height:30px !important; min-height:30px !important; margin:0 !important; border:1px solid rgba(255,255,255,.72) !important; border-radius:3px !important; padding:4px 7px !important; background:rgba(255,255,255,.12) !important; color:#fff !important; font-size:12px !important; font-weight:600 !important; line-height:20px !important; cursor:pointer; box-shadow:none !important; }
+.ao3mail-language:hover { background:rgba(255,255,255,.22) !important; }
+.ao3mail-restore { flex:0 0 auto; display:inline-flex !important; align-items:center !important; justify-content:center !important; height:30px !important; min-height:30px !important; margin:0 !important; border:1px solid rgba(255,255,255,.72) !important; border-radius:3px !important; padding:4px 10px !important; background:transparent !important; color:#fff !important; font-size:13px !important; line-height:20px !important; text-indent:0 !important; cursor:pointer; white-space:nowrap; box-shadow:none !important; }
+.ao3mail-restore:hover { background:rgba(255,255,255,.13); }
+.ao3mail-avatar,.ao3mail-sender-avatar,.ao3mail-account>span { display:grid; place-items:center; flex:0 0 auto; border-radius:50%; color:#fff; background:#8764b8; }
+.ao3mail-avatar { width:30px; height:30px; font-size:11px; }
+.ao3mail-ribbon { height:50px; min-width:0; display:flex; align-items:center; gap:28px; padding:0 18px; overflow-x:auto; overflow-y:hidden; border-bottom:1px solid var(--line); box-shadow:0 1px 2px #0000000c; background:#fff; scrollbar-width:thin; }
+.ao3mail-ribbon span { flex:0 0 auto; color:#444; white-space:nowrap; }
+.ao3mail-new { flex:0 0 auto; display:inline-flex !important; align-items:center !important; justify-content:center !important; width:auto !important; min-width:123px !important; height:36px !important; min-height:36px !important; margin:0 !important; border:0 !important; border-radius:3px !important; padding:8px 15px !important; overflow:visible !important; background:var(--blue) !important; color:#fff !important; font-size:14px !important; font-weight:600 !important; line-height:20px !important; text-indent:0 !important; white-space:nowrap !important; cursor:pointer; box-shadow:none !important; }
+.ao3mail-action { flex:0 0 auto; display:inline-flex !important; align-items:center !important; justify-content:center !important; width:auto !important; min-width:0 !important; height:36px !important; min-height:36px !important; margin:0 !important; border:1px solid transparent !important; border-radius:3px !important; padding:7px 9px !important; overflow:visible !important; background:transparent !important; color:#303030 !important; font-size:14px !important; font-weight:400 !important; line-height:20px !important; text-indent:0 !important; white-space:nowrap !important; cursor:pointer; box-shadow:none !important; }
+.ao3mail-action:hover { border-color:#d7d7d7 !important; background:#f3f3f3 !important; }
+.ao3mail-action:active { background:#e7e7e7 !important; }
+.ao3mail-reply-group { display:inline-flex !important; align-items:center !important; height:36px; gap:0; }
+.ao3mail-reply-group .ao3mail-reply { border-radius:3px 0 0 3px !important; border-right-color:#d7d7d7 !important; }
+.ao3mail-reply-menu { flex:0 0 32px; width:32px !important; min-width:32px !important; height:36px !important; min-height:36px !important; margin:0 !important; border:1px solid transparent !important; border-radius:0 3px 3px 0 !important; padding:0 3px !important; background:#fff !important; color:#333 !important; font:13px/34px "Segoe UI","Microsoft YaHei UI",sans-serif !important; vertical-align:middle !important; cursor:pointer; box-shadow:none !important; }
+.ao3mail-reply-menu:hover { border-color:#d7d7d7 !important; background:#f3f3f3 !important; }
+.ao3mail-notice[data-type="success"] { border-left-color:#4aa72e; background:#f3faf1; }
+.ao3mail-notice[data-type="error"] { border-left-color:#c4314b; background:#fff4f5; }
+.ao3mail-empty { padding:32px 16px; color:#777; text-align:center; }
+.ao3mail-layout { display:grid; grid-template-columns:minmax(176px,230px) minmax(270px,380px) minmax(0,1fr); width:100%; height:calc(100vh - 98px); min-width:0; }
+.ao3mail-folders { position:relative; padding:16px 8px 58px; overflow:auto; border-right:1px solid var(--line); background:#f7f7f7; }
+.ao3mail-account { display:flex; align-items:center; gap:10px; margin:0 8px 18px; }
+.ao3mail-account>span { width:36px; height:36px; font-size:12px; background:#4f6bed; }
+.ao3mail-account div { display:flex; min-width:0; flex-direction:column; }
+.ao3mail-account small { color:#666; overflow:hidden; text-overflow:ellipsis; }
+.ao3mail-folders a.folder { height:34px; display:flex; align-items:center; gap:9px; padding:0 12px; color:#313131 !important; border:0 !important; border-radius:3px; text-decoration:none !important; }
+.ao3mail-folders a.folder:hover { background:#e9e9e9; }
+.ao3mail-folders a.folder.selected { background:#dcecf7; color:#0f548c !important; font-weight:600; }
+.folder i { width:18px; font-style:normal; text-align:center; }
+.folder b { margin-left:auto; color:#0f6cbd; }
+.folder-title { margin:19px 12px 7px; font-weight:600; }
+.ao3mail-folder-foot { position:absolute; inset:auto 0 0; height:48px; display:flex; align-items:center; justify-content:space-around; border-top:1px solid var(--line); background:#f7f7f7; color:#0f6cbd; font-size:18px; }
+.ao3mail-listpane { min-width:0; overflow:hidden; border-right:1px solid var(--line); background:#fff; }
+.ao3mail-listhead { height:65px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid var(--line); }
+.ao3mail-listhead div { display:flex; flex-direction:column; gap:2px; }
+.ao3mail-listhead b { font-size:20px; }
+.ao3mail-listhead small { color:#777; }
+.ao3mail-listhead button { border:0; padding:6px; background:transparent; color:#444; }
+.ao3mail-listhead .ao3mail-list-controls { min-width:0; display:flex !important; flex-direction:row !important; align-items:center !important; justify-content:flex-end; gap:2px !important; }
+.ao3mail-filter,.ao3mail-page-button,.ao3mail-collapse { display:inline-flex !important; align-items:center !important; justify-content:center !important; height:30px !important; min-height:30px !important; margin:0 !important; border:1px solid transparent !important; border-radius:3px !important; padding:4px 6px !important; background:transparent !important; color:#444 !important; font-size:11px !important; line-height:18px !important; white-space:nowrap; cursor:pointer; box-shadow:none !important; }
+.ao3mail-filter:hover,.ao3mail-page-button:hover,.ao3mail-collapse:hover { border-color:#d8d8d8 !important; background:#f2f2f2 !important; }
+.ao3mail-page-button:disabled { opacity:.35; cursor:default; }
+.ao3mail-page-status { min-width:34px; color:#666 !important; font-size:11px; text-align:center; }
+.ao3mail-collapse { width:30px !important; padding:4px !important; font-size:18px !important; }
+.ao3mail-week { height:36px; display:flex; align-items:center; padding:0 14px; border-bottom:1px solid var(--line); background:#f3f2f1; font-weight:600; }
+.ao3mail-messages { height:calc(100% - 101px); overflow:auto; }
+.ao3mail-message { position:relative; min-height:78px; display:grid !important; grid-template-columns:15px 1fr auto; gap:9px; padding:10px 12px 9px 8px; border:0 !important; border-bottom:1px solid #ededed !important; background:#fff; color:var(--ink) !important; text-decoration:none !important; }
+.ao3mail-message:hover { background:#f7f7f7; }
+.ao3mail-message.is-active { background:#e5f2fb; box-shadow:inset 4px 0 var(--blue); }
+.ao3mail-row-icon { color:var(--blue); font-size:9px; padding-top:5px; }
+.ao3mail-row-main { min-width:0; display:flex; flex-direction:column; }
+.ao3mail-row-main strong,.ao3mail-row-main span,.ao3mail-row-main small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ao3mail-row-main strong { font-size:14px; }
+.ao3mail-row-main span { font-weight:600; margin-top:2px; }
+.ao3mail-row-main small { margin-top:3px; color:#666; font-size:12px; }
+.ao3mail-message time { color:#666; font-size:11px; }
+.ao3mail-reading { min-width:0; overflow:auto; background:#fff; scroll-behavior:smooth; }
+.ao3mail-subject { min-height:72px; display:flex; align-items:center; gap:9px; padding:13px 27px 10px; border-bottom:1px solid #f0f0f0; }
+.ao3mail-expand { display:none !important; flex:0 0 auto; height:32px !important; margin:0 !important; border:1px solid #c9c9c9 !important; border-radius:3px !important; padding:5px 9px !important; background:#fff !important; color:#0f548c !important; font-size:12px !important; cursor:pointer; box-shadow:none !important; }
+.ao3mail-subject h1 { min-width:0; margin:0 !important; color:#111 !important; border:0 !important; font:400 clamp(19px,2vw,28px)/1.2 "Segoe UI","Microsoft YaHei UI",sans-serif !important; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ao3mail-pin { font-size:23px; }
+.ao3mail-more { margin-left:auto; border:0; background:transparent; font-size:18px; }
+.ao3mail-sender { display:flex; align-items:center; gap:12px; padding:13px 27px 9px; }
+.ao3mail-sender-avatar { width:45px; height:45px; font-size:17px; }
+.ao3mail-sender div { display:flex; min-width:0; flex:1; flex-direction:column; }
+.ao3mail-sender strong { overflow:hidden; font-size:15px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.ao3mail-sender span,.ao3mail-sender time { color:#555; }
+.ao3mail-online { color:#4aa72e !important; }
+.ao3mail-sender time { font-size:12px; }
+.ao3mail-notice { margin:0 27px 12px; padding:7px 10px; border-left:3px solid #2692d8; background:#f5faff; color:#414141; }
+.ao3mail-original { padding:0 27px 60px; background:#fff; }
+
+/* AO3 页面进入阅读窗格后的中性化样式 */
+.ao3mail-original #header,.ao3mail-original #footer,.ao3mail-original #feedback,.ao3mail-original .landmark,.ao3mail-original .jump { display:none !important; }
+.ao3mail-original #outer,.ao3mail-original #inner,.ao3mail-original #main { width:auto !important; min-width:0 !important; max-width:none !important; margin:0 !important; padding:0 !important; background:#fff !important; box-shadow:none !important; }
+.ao3mail-original #main { font:15px/1.65 Georgia,"Noto Serif SC","Microsoft YaHei",serif !important; color:#222 !important; }
+.ao3mail-original a { color:#0f6cbd !important; text-decoration:none !important; border:0 !important; }
+.ao3mail-original a:hover { text-decoration:underline !important; }
+.ao3mail-original h2,.ao3mail-original h3,.ao3mail-original h4 { color:#252525 !important; background:transparent !important; border:0 !important; box-shadow:none !important; }
+.ao3mail-original #workskin .preface.group > h2.title,.ao3mail-original #workskin .preface.group > h3.byline { display:none !important; }
+.ao3mail-original .meta,.ao3mail-original .blurb,.ao3mail-original fieldset,.ao3mail-original .wrapper { border:1px solid #e5e5e5 !important; border-radius:2px !important; background:#fff !important; box-shadow:none !important; }
+.ao3mail-original .tags a.tag { display:inline-block; margin:2px; padding:2px 6px; border-radius:2px; background:#f2f2f2 !important; color:#444 !important; }
+.ao3mail-original .userstuff { max-width:920px; margin-inline:auto; }
+.ao3mail-original .userstuff p { margin:0 0 1em; }
+.ao3mail-original .chapter { scroll-margin-top:12px; }
+.ao3mail-original .work.navigation.actions,.ao3mail-original .chapter.navigation.actions { display:flex !important; flex-wrap:wrap !important; align-items:center !important; justify-content:center !important; gap:8px 10px !important; width:100% !important; margin:8px auto 18px !important; padding:8px 0 !important; text-align:center !important; }
+.ao3mail-original .work.navigation.actions li,.ao3mail-original .chapter.navigation.actions li { float:none !important; display:flex !important; align-items:center !important; justify-content:center !important; margin:0 !important; padding:0 !important; }
+.ao3mail-original .work.navigation.actions a,.ao3mail-original .chapter.navigation.actions a,.ao3mail-original .work.navigation.actions button,.ao3mail-original .chapter.navigation.actions button { display:inline-flex !important; align-items:center !important; justify-content:center !important; min-height:34px !important; margin:0 !important; padding:6px 14px !important; line-height:1.2 !important; text-align:center !important; vertical-align:middle !important; }
+
+.ao3mail-shell.is-reading-focus .ao3mail-layout { grid-template-columns:minmax(0,1fr) !important; }
+.ao3mail-shell.is-reading-focus .ao3mail-folders,.ao3mail-shell.is-reading-focus .ao3mail-listpane { display:none !important; }
+.ao3mail-shell.is-reading-focus .ao3mail-expand { display:inline-flex !important; align-items:center; justify-content:center; }
+.ao3mail-shell.is-reading-focus .ao3mail-original { max-width:1100px; width:100%; margin-inline:auto; }
+
+@media (max-width:1150px) {
+  .ao3mail-layout { grid-template-columns:180px minmax(270px,310px) minmax(0,1fr); }
+  .ao3mail-ribbon { gap:16px; }
+  .ao3mail-presence { display:none; }
+  .ao3mail-filter { display:none !important; }
+}
+
+@media (max-width:980px) {
+  .ao3mail-layout { grid-template-columns:minmax(260px,36vw) minmax(0,1fr); }
+  .ao3mail-folders { display:none; }
+  .ao3mail-brand,.ao3mail-presence { display:none; }
+  .ao3mail-search { width:auto; flex:1 1 auto; }
+  .ao3mail-subject,.ao3mail-sender,.ao3mail-original { padding-left:18px; padding-right:18px; }
+  .ao3mail-notice { margin-left:18px; margin-right:18px; }
+}
+
+@media (max-width:680px) {
+  .ao3mail-shell { height:auto; min-height:100vh; overflow:visible; }
+  .ao3mail-layout { display:block; height:auto; min-width:0; }
+  .ao3mail-listpane { height:230px; border-right:0; border-bottom:1px solid var(--line); }
+  .ao3mail-reading { overflow:visible; }
+  .ao3mail-ribbon { gap:14px; }
+  .ao3mail-restore { max-width:74px; overflow:hidden; text-overflow:ellipsis; }
+  .ao3mail-page-button { max-width:58px; overflow:hidden; }
+  .ao3mail-original,.ao3mail-subject,.ao3mail-sender { padding-left:16px; padding-right:16px; }
+  .ao3mail-notice { margin-left:16px; margin-right:16px; }
+}
+
+@media print {
+  .ao3mail-topbar,.ao3mail-ribbon,.ao3mail-folders,.ao3mail-listpane,.ao3mail-subject,.ao3mail-sender,.ao3mail-notice { display:none !important; }
+  .ao3mail-shell,.ao3mail-layout,.ao3mail-reading { display:block; height:auto; overflow:visible; }
+}
