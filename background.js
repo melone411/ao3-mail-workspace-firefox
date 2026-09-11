@@ -1,13 +1,20 @@
 "use strict";
 
-function toggleCurrentTab(tab) {
+function send(tab, type) {
   if (!tab || !tab.id) return;
-  browser.tabs.sendMessage(tab.id, { type: "AO3MAIL_TOGGLE" }).catch(() => {});
+  browser.tabs.sendMessage(tab.id, { type }).catch(() => {});
 }
 
-browser.browserAction.onClicked.addListener(toggleCurrentTab);
-browser.commands.onCommand.addListener(async (command) => {
-  if (command !== "toggle-mail-workspace") return;
+async function currentTab() {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-  toggleCurrentTab(tabs[0]);
+  return tabs[0];
+}
+
+browser.browserAction.onClicked.addListener((tab) => send(tab, "OWA_TOGGLE"));
+
+browser.commands.onCommand.addListener(async (command) => {
+  const tab = await currentTab();
+  if (command === "toggle-mail-workspace") send(tab, "OWA_TOGGLE");
+  if (command === "toggle-lock-screen") send(tab, "OWA_VEIL");
+  if (command === "cycle-skin") send(tab, "OWA_SKIN");
 });

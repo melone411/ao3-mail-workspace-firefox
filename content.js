@@ -1,14 +1,57 @@
 (function () {
   "use strict";
 
-  if (window.top !== window || document.documentElement.dataset.ao3mailLoaded) return;
-  document.documentElement.dataset.ao3mailLoaded = "1";
+  if (window.top !== window || document.documentElement.dataset.owaReady) return;
+  document.documentElement.dataset.owaReady = "1";
+
+  /* ---------------------------------------------------------------- 常量 */
+
+  const ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAADcElEQVRYhc2XW2yTZRjHf+/Xb7Sro3YnRjALITNs1q1Tx9DoBa4KxrFMQwgsnJy6iEFmXAJe954FZ0BnFlGjg7gLEsW4jJAdLowc0klhDSxxC4dlYYyOHtZ1o+v6eqFfQyndydr6v3y+53t+/7zP877f9wo0NXbqTRj2Cyl3AaXAEyRXPiR/IMQXvuO201pQAOR+2P1UWOVXoDzJ0AQSHT4x8w7Hqh8oNHbqUwsHkDvNEcMJAGFq7PlYSPl56uAP2RCiRhFS7k4HHEDAQQWwpMsAUr6kAFlpMwBmJY1wANRHA28/v4qa8nxURSQVFI5IfnHe42fneGIDtmdyGPOHuD0xQ9PmtYgkeZASPjt3i7uTIapKsukd9DzewCqTnh8v3uHCsJdLN3y07bNgyoxbpCXJPx3mg++v0eVyA7Bz4+qY5zEzUFWczVZrPgBdLje2ZgeDY1PLhg+OTWFrdkThW6352EpyEhvQqwrtDWXYa4vQKYKh8SCvNTv46XJs3xajLpebLUf7GRoPIgR8snktPzSUoldj5z5uF2jJHfutmI0qUw/mePdbF/Yzw8xF5IJgKaHl3C12tQ3gnw6z0qByssGKvbYI5TFDlXAbvm7JpfdwJZY1WdGibx13cm8ylBDuCc6yvdWJ/cwwESlZX2Ck+9AGqq15Cd+Z9xxYl5dJz6EN1P0zOL/96eHVIw4u356My3WNBqg64qD7+n0Atr1QQN+nlawvMM6HmN8AgCFD4au9FlrqSsjQCUY9M7zZ0s+pi3eiOaf777LlaD833dPoFIG9togT9c9iXKFbqHz8QZRI9a+sYV1eJu9952IiMMuB9uu4RgMAfNk7AkBuVgbf1JeyqTh7sWUXbwBgU3E2fYcr2fP1AFdGJqNggPLClbQ3lFGYY1hKyYVb8KgKcwycbaqIzgVA3cbVnG2qWDIclrgCmrS5qC77+9CqfS5/OWWWb0DTvwFrSvvn+P9lwBOc/c+BE4FYRoyB1t6RuIRkyh2YpbVvJCYmnjzY7QNMWsBsVHn5aTMrdMntTmguwu9DXrzB8MNhvwryPIg3tIg3GKbzqjup8MSS1xQplGMposXjhTgpAMwf9bRLkeoLinT68u6/qAB4lZn3QXSkEq6GRQ32HaGYXxRzY882iTyApAIwJ5kaAAak4JQ/d6IN+44QwF/QbSb3lo70UAAAAABJRU5ErkJggg==";
+
+  const KEYS = {
+    enabled: "owaEnabled",
+    language: "owaLanguage",
+    autoLock: "owaAutoLock",
+    marks: "owaMarks",
+    cache: "owaPageCache",
+    skin: "owaSkin",
+    account: "owaAccount"
+  };
+
+  const CACHE_TTL = 6 * 60 * 60 * 1000;   // 分页缓存有效期：6 小时
+  const CACHE_MAX = 300;                  // 最多缓存多少个分页
+  const MARK_MAX = 3000;                  // 最多记录多少条阅读记录
+  const FIRST_BATCH = 2;                  // 进入 History 时先抓几页
+  const NEXT_BATCH = 3;                   // 之后每次续抓几页
+  const CONCURRENCY = 2;                  // 并发请求数
+  const store = (typeof browser !== "undefined" && browser.storage) ? browser.storage.local : null;
+
+  /* ---------------------------------------------------------------- 状态 */
 
   const state = {
-    enabled: false, shell: null, originalNodes: [], rows: [], scrollY: 0,
-    historyLoading: false, language: "zh", currentPage: 1, pageSize: 20, filter: ""
+    enabled: false, shell: null, rows: [], scrollY: 0,
+    contentNode: null, placeholder: null, legacyNodes: null,
+    language: "zh", skin: "outlook", currentPage: 1, pageSize: 20, filter: "",
+    historyLoading: false, historyQueue: [], historyTotal: 1,
+    veil: null, veiled: false, menuGuard: false, autoLock: false, navigating: false, navTimer: null, account: null, chromeApplied: false, chromeFromVeil: false,
+    originalTitle: "", iconLinks: [], ownIcon: null,
+    marks: { read: {}, pos: {} }, cache: {},
+    markTimer: null, cacheTimer: null, lastEscape: 0
   };
+
   const text = (node) => node ? node.textContent.replace(/\s+/g, " ").trim() : "";
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  function scrollTo(element, block = "start") {
+    if (!element || typeof element.scrollIntoView !== "function") return;
+    try {
+      element.scrollIntoView({ behavior: "smooth", block });
+    } catch (_) {
+      element.scrollIntoView();
+    }
+  }
+
+  /* ------------------------------------------------------------- 多语言 */
 
   const I18N = {
     zh: {
@@ -21,7 +64,30 @@
       lastWeek: "⌄　上周", previous: "‹ 上一页", next: "下一页 ›", minimize: "最小化文件夹",
       expand: "展开文件夹", recipient: "收件人", currentUser: "当前用户", today: "今天",
       externalNotice: "ⓘ　此邮件来自企业外部，但已通过安全归档扫描。可在阅读窗格中正常使用原页面链接。",
-      messages: "封邮件", results: "个搜索结果", allHistory: "全部 History", noMatches: "没有匹配的邮件"
+      messages: "封邮件", results: "个搜索结果", allHistory: "全部 History", noMatches: "没有匹配的邮件",
+      veilTitle: "正在与 Exchange 服务器同步",
+      veilHint: "正在下载新邮件，请稍候……（点击任意位置继续）",
+      veilAccount: "workmail · Microsoft Exchange",
+      loadMore: "载入更多邮件", loading: "正在载入……", loadedAll: "已载入全部邮件",
+      autoLockOn: "自动锁定已开启：窗口失去焦点时会显示同步界面。连按两下 Esc 可随时手动呼出。",
+      autoLockOff: "自动锁定已关闭，只有连按两下 Esc 或 Alt+Shift+X 才会呼出同步界面。",
+      autoLockLabel: "自动锁定屏幕（失焦时）", clearMarks: "清除阅读记录与缓存",
+      cleared: "阅读记录与分页缓存已清除。",
+      resumed: "已恢复上次阅读位置。",
+      historyProgress: "正在读取 History",
+      historyPartial: "部分分页载入失败，可点击“载入更多邮件”重试。",
+      pages: "页",
+      filterPrompt: "筛选当前列表",
+      skinSwitch: "切换界面风格",
+      deskFolder: "工作台", profileFolder: "我的名片", prefsFolder: "邮箱设置",
+      skinsFolder: "主题外观", invitesFolder: "邀请他人",
+      sentItems: "已发送邮件", draftsFolder: "草稿", seriesFolder: "会话组",
+      collectionsFolder: "共享文件夹", statsFolder: "使用情况报表", archived: "已归档",
+      subsFolder: "关注的会话", coauthorFolder: "共同编辑", requestsFolder: "待处理请求",
+      signupsFolder: "活动报名", assignmentsFolder: "分派任务", claimsFolder: "认领任务",
+      relatedFolder: "关联邮件", giftsFolder: "共享给我",
+      editWorks: "✎ 修改", unsubscribe: "取消订阅", subscribe: "订阅",
+      noAction: "当前页面没有这个操作。"
     },
     en: {
       focus: "Focus", restore: "Restore AO3", search: "Search all mail", newMail: "+ New work",
@@ -33,12 +99,53 @@
       lastWeek: "⌄　Last week", previous: "‹ Previous", next: "Next ›", minimize: "Minimize folders",
       expand: "Show folders", recipient: "To", currentUser: "Current user", today: "Today",
       externalNotice: "ⓘ　This external message passed the archive scan. Original AO3 links remain available in the reading pane.",
-      messages: "messages", results: "search results", allHistory: "All History", noMatches: "No matching mail"
+      messages: "messages", results: "search results", allHistory: "All History", noMatches: "No matching mail",
+      veilTitle: "Synchronising with Exchange server",
+      veilHint: "Downloading new messages, please wait… (click anywhere to continue)",
+      veilAccount: "workmail · Microsoft Exchange",
+      loadMore: "Load more messages", loading: "Loading…", loadedAll: "All messages loaded",
+      autoLockOn: "Auto-lock on: the sync screen appears when the window loses focus.",
+      autoLockOff: "Auto-lock off — press Esc twice or Alt+Shift+X to show the sync screen.",
+      autoLockLabel: "Auto-lock on blur", clearMarks: "Clear reading history and cache",
+      cleared: "Reading history and page cache cleared.",
+      resumed: "Reading position restored.",
+      historyProgress: "Loading History",
+      historyPartial: "Some pages failed to load. Use “Load more messages” to retry.",
+      pages: "pages",
+      filterPrompt: "Filter the current list",
+      skinSwitch: "Switch interface style",
+      deskFolder: "Dashboard", profileFolder: "My card", prefsFolder: "Mailbox settings",
+      skinsFolder: "Appearance", invitesFolder: "Invite others",
+      sentItems: "Sent items", draftsFolder: "Drafts", seriesFolder: "Threads",
+      collectionsFolder: "Shared folders", statsFolder: "Usage report", archived: "Archive",
+      subsFolder: "Followed", coauthorFolder: "Co-authoring", requestsFolder: "Pending",
+      signupsFolder: "Event sign-ups", assignmentsFolder: "Assigned tasks", claimsFolder: "Claimed tasks",
+      relatedFolder: "Linked mail", giftsFolder: "Shared with me",
+      editWorks: "✎ Edit", unsubscribe: "Unsubscribe", subscribe: "Subscribe",
+      noAction: "That action is not available on this page."
     }
   };
 
   function tr(key) {
-    return (I18N[state.language] && I18N[state.language][key]) || I18N.zh[key] || key;
+    const extra = (skin() && skin().strings) || {};
+    const localExtra = extra[state.language] || {};
+    if (localExtra[key] !== undefined) return localExtra[key];
+    const zhExtra = extra.zh || {};
+    return (I18N[state.language] && I18N[state.language][key]) || I18N.zh[key] || zhExtra[key] || key;
+  }
+
+  /* --------------------------------------------------- 基础 DOM 工具函数 */
+
+  function make(tag, className, content) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    if (content !== undefined) element.textContent = String(content);
+    return element;
+  }
+
+  function append(parent, ...children) {
+    children.filter(Boolean).forEach((child) => parent.appendChild(child));
+    return parent;
   }
 
   function localized(tag, className, key) {
@@ -46,6 +153,420 @@
     element.dataset.i18n = key;
     return element;
   }
+
+  function makeButton(className, label, title) {
+    const button = make("button", className, label);
+    button.type = "button";
+    if (title) button.title = title;
+    return button;
+  }
+
+  function makeAction(className, key, title) {
+    const button = makeButton(`owa-action ${className}`, tr(key), title);
+    button.dataset.i18n = key;
+    return button;
+  }
+
+  function initials(name) {
+    const clean = (name || "AO3").replace(/[^\p{L}\p{N}\s]/gu, "").trim();
+    const parts = clean.split(/\s+/).filter(Boolean);
+    return ((parts.length > 1 ? parts[0][0] + parts[1][0] : clean.slice(0, 2)) || "WM").toUpperCase();
+  }
+
+  /* ------------------------------------------ ① 标签页标题 / favicon 伪装 */
+
+  function applyChrome() {
+    if (state.chromeApplied) return;
+    state.originalTitle = document.title;
+    state.iconLinks = Array.from(
+      document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
+    );
+    state.iconLinks.forEach((link) => link.remove());
+    const icon = document.createElement("link");
+    icon.rel = "icon";
+    icon.type = "image/png";
+    icon.href = ICON;
+    (document.head || document.documentElement).appendChild(icon);
+    state.ownIcon = icon;
+    state.chromeApplied = true;
+    updateTitle();
+  }
+
+  function restoreChrome() {
+    if (!state.chromeApplied) return;
+    if (state.ownIcon) {
+      if (state.iconLinks.length) {
+        state.ownIcon.remove();
+        const head = document.head || document.documentElement;
+        state.iconLinks.forEach((link) => head.appendChild(link));
+      } else {
+        // 页面本来没有显式 icon 标签，改指回站点默认图标即可还原。
+        state.ownIcon.href = `${location.origin}/favicon.ico`;
+      }
+    }
+    state.ownIcon = null;
+    state.iconLinks = [];
+    if (state.originalTitle) document.title = state.originalTitle;
+    state.chromeApplied = false;
+  }
+
+  function unreadCount() {
+    if (!state.rows.length) return 0;
+    return state.rows.filter((item) => !isRead(item)).length;
+  }
+
+  function updateTitle() {
+    if (!state.chromeApplied) return;
+    const count = state.enabled ? unreadCount() : 0;
+    const suffix = count > 0 ? ` (${count})` : "";
+    document.title = `${tr("inbox")}${suffix} - ${tr("mailbox")} - Outlook`;
+  }
+
+  /* ------------------------------------------------- ④ 老板键 / 同步遮罩 */
+
+  function buildVeil() {
+    const veil = make("div", "owa-veil");
+    veil.id = "owa-veil";
+    const box = make("div", "owa-veil-box");
+    const logo = make("div", "owa-veil-logo", "✉");
+    const bar = make("div", "owa-veil-bar");
+    bar.appendChild(make("i"));
+    append(box,
+      logo,
+      localized("div", "owa-veil-title", "veilTitle"),
+      localized("div", "owa-veil-account", "veilAccount"),
+      bar,
+      localized("div", "owa-veil-hint", "veilHint")
+    );
+    veil.appendChild(box);
+    veil.addEventListener("click", () => setVeil(false));
+    return veil;
+  }
+
+  function ensureVeil() {
+    if (state.veil && state.veil.isConnected) return state.veil;
+    state.veil = buildVeil();
+    document.body.appendChild(state.veil);
+    return state.veil;
+  }
+
+  function setVeil(on) {
+    if (on) {
+      if (!state.chromeApplied) {
+        applyChrome();
+        state.chromeFromVeil = true;
+      }
+      const veil = ensureVeil();
+      veil.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = tr(el.dataset.i18n); });
+      veil.classList.add("is-visible");
+      document.documentElement.classList.add("owa-veiled");
+      state.veiled = true;
+    } else {
+      if (state.veil) state.veil.classList.remove("is-visible");
+      document.documentElement.classList.remove("owa-veiled");
+      state.veiled = false;
+      if (state.chromeFromVeil && !state.enabled) {
+        restoreChrome();
+        state.chromeFromVeil = false;
+      }
+    }
+  }
+
+  function setAutoLock(value) {
+    state.autoLock = Boolean(value);
+    if (store) store.set({ [KEYS.autoLock]: state.autoLock });
+    setNotice(tr(state.autoLock ? "autoLockOn" : "autoLockOff"), "success");
+    const item = state.shell && state.shell.querySelector(".owa-menu-lock");
+    if (item) item.dataset.checked = state.autoLock ? "1" : "0";
+  }
+
+  function bindGlobalGuards() {
+    // 页面正在跳转时不要弹遮罩，否则每次翻页、点开作品都要手动关一次。
+    const markNavigating = () => {
+      state.navigating = true;
+      clearTimeout(state.navTimer);
+      state.navTimer = setTimeout(() => { state.navigating = false; }, 1500);
+    };
+    window.addEventListener("beforeunload", markNavigating);
+    window.addEventListener("pagehide", markNavigating);
+    document.addEventListener("submit", markNavigating, true);
+    document.addEventListener("click", (event) => {
+      const link = event.target && typeof event.target.closest === "function"
+        ? event.target.closest("a[href]")
+        : null;
+      if (link && !link.getAttribute("href").startsWith("#")) markNavigating();
+    }, true);
+
+    // 自动锁定默认关闭，只有在 ••• 菜单里手动打开后才会因失焦弹出。
+    window.addEventListener("blur", () => {
+      if (state.autoLock && !state.navigating && !state.veiled) setVeil(true);
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && state.autoLock && !state.navigating && !state.veiled) setVeil(true);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.isComposing) return;
+      if (event.key === "Escape") {
+        const now = Date.now();
+        if (state.veiled) {
+          setVeil(false);
+          state.lastEscape = 0;
+          return;
+        }
+        if (now - state.lastEscape < 600) {
+          setVeil(true);
+          state.lastEscape = 0;
+        } else {
+          state.lastEscape = now;
+        }
+      }
+    }, true);
+  }
+
+  /* ------------------------------------------------------------ 皮肤 */
+
+  const SKINS = (typeof window !== "undefined" && window.__owaSkins) || {};
+  const DEFAULT_SKIN = "outlook";
+
+  function skin() {
+    return SKINS[state.skin] || SKINS[DEFAULT_SKIN] || Object.values(SKINS)[0];
+  }
+
+  /* ------------------------------------------- AO3 账户信息（侧栏文件夹用） */
+
+  const ACCOUNT_FALLBACK = {
+    dashboard: "/users/{u}",
+    profile: "/users/{u}/profile",
+    preferences: "/users/{u}/preferences",
+    skins: "/skins",
+    invitations: "/users/{u}/invitations",
+    works: "/users/{u}/works",
+    series: "/users/{u}/series",
+    bookmarks: "/users/{u}/bookmarks",
+    collections: "/users/{u}/collections",
+    inbox: "/users/{u}/inbox",
+    statistics: "/users/{u}/stats",
+    history: "/users/{u}/readings",
+    subscriptions: "/users/{u}/subscriptions",
+    gifts: "/users/{u}/gifts"
+  };
+
+  // AO3 面板上的英文原名，悬停时显示在中文名后面
+  const ACCOUNT_SOURCE = {
+    dashboard: "Dashboard", profile: "Profile", preferences: "Preferences",
+    skins: "Skins", invitations: "Invitations",
+    works: "Works", drafts: "Drafts", series: "Series",
+    bookmarks: "Bookmarks", collections: "Collections",
+    inbox: "Inbox", statistics: "Statistics", history: "History",
+    subscriptions: "Subscriptions", "co-creator": "Co-Creator",
+    requests: "Requests", "sign-ups": "Sign-ups", assignments: "Assignments",
+    claims: "Claims", "related-works": "Related Works", gifts: "Gifts"
+  };
+
+  // 当前页面是否就是这个文件夹（用于侧栏高亮）
+  function isCurrentFolder(href) {
+    try {
+      const target = new URL(href, location.href);
+      return target.pathname.replace(/\/$/, "") === location.pathname.replace(/\/$/, "");
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // AO3 侧栏条目形如 "Works (32)"，键统一成小写英文名
+  function parseAccount() {
+    const greeting = document.querySelector('#greeting a[href*="/users/"], #header .user a[href*="/users/"]');
+    let user = null;
+    if (greeting) {
+      const match = (greeting.getAttribute("href") || "").match(/\/users\/([^/?#]+)/);
+      if (match) user = decodeURIComponent(match[1]);
+    }
+    const links = {};
+    const counts = {};
+    document.querySelectorAll("#dashboard a[href]").forEach((link) => {
+      const raw = text(link);
+      const withCount = raw.match(/^(.*?)\s*\((\d+)\)$/);
+      const key = (withCount ? withCount[1] : raw).trim().toLowerCase().replace(/\s+/g, "-");
+      if (!key) return;
+      try {
+        links[key] = new URL(link.getAttribute("href"), location.href).href;
+      } catch (_) { return; }
+      if (withCount) counts[key] = Number(withCount[2]);
+    });
+    if (!user && !Object.keys(links).length) return null;
+    return { user, links, counts, t: Date.now() };
+  }
+
+  // 当前页有面板就刷新缓存，没有就沿用上次读到的
+  function refreshAccount() {
+    const fresh = parseAccount();
+    if (!fresh) return;
+    const previous = state.account || {};
+    state.account = {
+      user: fresh.user || previous.user || null,
+      links: Object.assign({}, previous.links, fresh.links),
+      counts: Object.assign({}, previous.counts, fresh.counts),
+      t: fresh.t
+    };
+    if (store) store.set({ [KEYS.account]: state.account }).catch(() => {});
+  }
+
+  function accountLink(key) {
+    const account = state.account;
+    if (!account) return null;
+    if (account.links && account.links[key]) return account.links[key];
+    const fallback = ACCOUNT_FALLBACK[key];
+    if (!fallback || !account.user) return null;
+    return `${location.origin}${fallback.replace("{u}", encodeURIComponent(account.user))}`;
+  }
+
+  function accountCount(key) {
+    const account = state.account;
+    return account && account.counts && key in account.counts ? account.counts[key] : undefined;
+  }
+
+  // 面板上的按钮（Edit Works / Subscribe / Unsubscribe）只在部分页面存在，
+  // 找不到就让皮肤把对应控件藏起来，避免点出 404。
+  function pageAction(matcher) {
+    const original = state.shell && state.shell.querySelector(".owa-original");
+    const scope = original || document;
+    const nodes = scope.querySelectorAll('a[href], input[type="submit"], button');
+    for (const node of nodes) {
+      const label = (node.value || node.textContent || "").replace(/\s+/g, " ").trim();
+      if (label && matcher.test(label)) return node;
+    }
+    return null;
+  }
+
+  function skinApi(info, rows) {
+    return {
+      make, append, localized, makeButton, makeAction, initials, tr,
+      state, info, rows, isRead, unreadCount, readKey,
+      account: state.account, accountLink, accountCount, pageAction,
+      accountSource: (key) => ACCOUNT_SOURCE[key] || "", isCurrentFolder,
+      makeRow: (item, index) => makeMessageRow(item, index)
+    };
+  }
+
+  function buildShell(info, rows) {
+    const active = skin();
+    const shell = active.build(skinApi(info, rows));
+    shell.id = "owa-shell";
+    shell.classList.add("owa-shell");
+    shell.dataset.skin = active.id;
+    return shell;
+  }
+
+  function makeMessageRow(item, index) {
+    const row = skin().row(skinApi(null, state.rows), item, index);
+    row.classList.add("owa-message");
+    row.classList.toggle("is-unread", !isRead(item));
+    row.dataset.row = String(index);
+    if (!row.getAttribute("href")) row.setAttribute("href", item.href);
+    return row;
+  }
+
+  function switchSkin(id) {
+    if (!SKINS[id] || id === state.skin) return;
+    const wasEnabled = state.enabled;
+    if (wasEnabled) remove();
+    state.skin = id;
+    if (store) store.set({ [KEYS.skin]: id }).catch(() => {});
+    if (wasEnabled) apply();
+  }
+
+  function nextSkinId() {
+    const ids = Object.keys(SKINS);
+    if (ids.length < 2) return state.skin;
+    return ids[(ids.indexOf(state.skin) + 1) % ids.length];
+  }
+
+  /* --------------------------------------------------- ⑦ 阅读进度与已读状态 */
+
+  function readKey(href) {
+    try {
+      const url = new URL(href, location.href);
+      const match = url.pathname.match(/\/(works|series)\/\d+/);
+      return match ? match[0] : url.pathname;
+    } catch (_) {
+      return String(href || "");
+    }
+  }
+
+  function posKey() {
+    return `${location.pathname}${location.search}`;
+  }
+
+  function isRead(item) {
+    const key = item && (item.key || readKey(item.href));
+    return Boolean(key && state.marks.read[key]);
+  }
+
+  function markRead(key) {
+    if (!key) return;
+    state.marks.read[key] = Date.now();
+    scheduleMarkSave();
+  }
+
+  function savePosition(top) {
+    state.marks.pos[posKey()] = { s: Math.max(0, Math.round(top)), t: Date.now() };
+    scheduleMarkSave();
+  }
+
+  function trimMarks() {
+    ["read", "pos"].forEach((bucket) => {
+      const entries = Object.entries(state.marks[bucket]);
+      if (entries.length <= MARK_MAX) return;
+      entries.sort((a, b) => {
+        const at = bucket === "read" ? a[1] : (a[1] && a[1].t) || 0;
+        const bt = bucket === "read" ? b[1] : (b[1] && b[1].t) || 0;
+        return bt - at;
+      });
+      state.marks[bucket] = Object.fromEntries(entries.slice(0, MARK_MAX));
+    });
+  }
+
+  function scheduleMarkSave() {
+    if (!store) return;
+    clearTimeout(state.markTimer);
+    state.markTimer = setTimeout(() => {
+      trimMarks();
+      store.set({ [KEYS.marks]: state.marks }).catch(() => {});
+    }, 1200);
+  }
+
+  function flushMarks() {
+    if (!store) return;
+    clearTimeout(state.markTimer);
+    trimMarks();
+    store.set({ [KEYS.marks]: state.marks }).catch(() => {});
+  }
+
+  function restorePosition() {
+    const record = state.marks.pos[posKey()];
+    const reading = state.shell && state.shell.querySelector(".owa-reading");
+    if (!reading || !record || !record.s) return;
+    let tries = 0;
+    const seek = () => {
+      reading.scrollTop = record.s;
+      tries += 1;
+      if (Math.abs(reading.scrollTop - record.s) > 8 && tries < 12) setTimeout(seek, 120);
+      else if (tries === 1 || reading.scrollTop > 200) setNotice(tr("resumed"), "success");
+    };
+    setTimeout(seek, 160);
+  }
+
+  function bindProgressTracking() {
+    const reading = state.shell.querySelector(".owa-reading");
+    if (!reading) return;
+    let timer = null;
+    reading.addEventListener("scroll", () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => savePosition(reading.scrollTop), 400);
+    }, { passive: true });
+  }
+
+  /* ------------------------------------------------------- 页面内容解析 */
 
   function historyDeleteData(blurb, baseHref = location.href) {
     const button = blurb.querySelector('input[type="submit"][value*="Delete from History"], button[value*="Delete from History"]');
@@ -74,7 +595,7 @@
     return {
       title: text(link), sender: text(author) || text(fandom) || "AO3 通知",
       preview: text(summary) || text(fandom) || "存档邮件",
-      date: text(date), href, sourceElement: blurb,
+      date: text(date), href, key: readKey(href), sourceElement: blurb,
       historyDelete: historyDeleteData(blurb, baseHref),
       active: href.split("#")[0] === location.href.split("#")[0]
     };
@@ -83,7 +604,7 @@
   function pageInfo() {
     const workTitle = document.querySelector("#workskin .preface h2.title, .work.meta h2.title, h2.title");
     const author = document.querySelector("#workskin .byline a[rel='author'], .work.meta .byline a[rel='author'], a[rel='author']");
-    const documentTitle = document.title.replace(/\s*\|\s*Archive of Our Own.*$/i, "").trim();
+    const documentTitle = (state.originalTitle || document.title).replace(/\s*\|\s*Archive of Our Own.*$/i, "").trim();
     const title = text(workTitle) || documentTitle || "Archive of Our Own";
     const sender = text(author) || "Archive Team";
     const summary = text(document.querySelector("#workskin .summary blockquote, .work.meta .summary blockquote, .notice"));
@@ -93,9 +614,7 @@
   function getRows() {
     const rows = [];
     const seen = new Set();
-    const blurbs = document.querySelectorAll("li.work.blurb, li.bookmark.blurb, li.series.blurb");
-
-    blurbs.forEach((blurb) => {
+    document.querySelectorAll("li.work.blurb, li.bookmark.blurb, li.series.blurb").forEach((blurb) => {
       const row = rowFromBlurb(blurb);
       if (!row || seen.has(row.href)) return;
       seen.add(row.href);
@@ -103,14 +622,16 @@
     });
 
     if (!rows.length) {
-      document.querySelectorAll("#chapters .chapter, #workskin .chapter").forEach((chapter, index) => {
+      const info = pageInfo();
+      document.querySelectorAll("#chapters .chapter:not(.preface), #workskin .chapter:not(.preface)").forEach((chapter, index) => {
         const heading = chapter.querySelector(".chapter.preface h3.title, h3.title");
-        if (!chapter.id) chapter.id = `ao3mail-chapter-${index + 1}`;
+        if (!chapter.id) chapter.id = `owa-chapter-${index + 1}`;
         rows.push({
-          title: text(heading) || `正文 ${index + 1}`,
-          sender: pageInfo().sender,
-          preview: text(chapter.querySelector(".userstuff p")) || "打开阅读窗格",
-          date: index ? "" : "今天", href: `#${chapter.id}`,
+          title: text(heading) || `${state.language === "zh" ? "正文" : "Part"} ${index + 1}`,
+          sender: info.sender,
+          preview: text(chapter.querySelector(".userstuff p")) || tr("today"),
+          date: index ? "" : tr("today"), href: `#${chapter.id}`,
+          key: `${readKey(location.href)}#${index + 1}`,
           sourceElement: chapter, active: index === 0
         });
       });
@@ -119,269 +640,128 @@
     if (!rows.length) {
       const info = pageInfo();
       rows.push({
-        title: info.title, sender: info.sender, preview: info.summary || "AO3 系统邮件",
-        date: "今天", href: location.href,
-        sourceElement: document.querySelector("#workskin, #main") || document.body,
-        active: true
+        title: info.title, sender: info.sender, preview: info.summary || "AO3",
+        date: tr("today"), href: location.href, key: readKey(location.href),
+        sourceElement: null, active: true
       });
     }
     return rows;
   }
 
-  function initials(name) {
-    const clean = (name || "AO3").replace(/[^\p{L}\p{N}\s]/gu, "").trim();
-    const parts = clean.split(/\s+/).filter(Boolean);
-    return ((parts.length > 1 ? parts[0][0] + parts[1][0] : clean.slice(0, 2)) || "AO").toUpperCase();
-  }
+  /* --------------------------------------------------------- 界面构建 */
 
-  function make(tag, className, content) {
-    const element = document.createElement(tag);
-    if (className) element.className = className;
-    if (content !== undefined) element.textContent = String(content);
-    return element;
-  }
 
-  function append(parent, ...children) {
-    children.filter(Boolean).forEach((child) => parent.appendChild(child));
-    return parent;
-  }
 
-  function makeButton(className, label, title) {
-    const button = make("button", className, label);
-    button.type = "button";
-    if (title) button.title = title;
-    return button;
-  }
-
-  function makeAction(className, key, title) {
-    const button = makeButton(`ao3mail-action ${className}`, tr(key), title);
-    button.dataset.i18n = key;
-    return button;
-  }
-
-  function makeFolder(href, icon, key, count, selected = false) {
-    const link = make("a", `folder${selected ? " selected" : ""}`);
-    link.href = href;
-    append(link, make("i", "", icon), localized("span", "folder-label", key));
-    if (count !== undefined) link.appendChild(make("b", "", count));
-    return link;
-  }
-
-  function makeMessageRow(item, index) {
-    const link = make("a", `ao3mail-message${item.active ? " is-active" : ""}`);
-    link.href = item.href;
-    link.dataset.row = String(index);
-    link.title = "单击选择，双击打开";
-    const body = make("span", "ao3mail-row-main");
-    append(body,
-      make("strong", "", item.sender),
-      make("span", "", item.title),
-      make("small", "", item.preview)
-    );
-    append(link,
-      make("span", "ao3mail-row-icon", index < 2 ? "●" : "○"),
-      body,
-      make("time", "", item.date)
-    );
-    return link;
-  }
-
-  function buildShell(info, rows) {
-    const unread = Math.max(3, Math.min(999, rows.length * 3 + 5));
-    const shell = make("div", "ao3mail-shell");
-    shell.id = "ao3mail-shell";
-
-    const topbar = make("header", "ao3mail-topbar");
-    const appGrid = makeButton("ao3mail-app-grid", "⠿");
-    appGrid.setAttribute("aria-label", "应用菜单");
-    const search = make("form", "ao3mail-search");
-    search.action = "https://archiveofourown.org/works/search";
-    search.method = "get";
-    const searchInput = make("input");
-    searchInput.name = "work_search[query]";
-    searchInput.placeholder = tr("search");
-    searchInput.autocomplete = "off";
-    searchInput.setAttribute("aria-label", "搜索所有邮件");
-    const searchButton = makeButton("ao3mail-search-button", "⌕", "搜索所有邮件");
-    searchButton.type = "submit";
-    append(search, searchButton, searchInput);
-    append(topbar,
-      appGrid,
-      make("span", "ao3mail-brand", "Outlook"),
-      search,
-      localized("span", "ao3mail-presence", "focus"),
-      makeButton("ao3mail-language", state.language === "zh" ? "EN" : "中文", "中文 / English"),
-      localized("button", "ao3mail-restore", "restore"),
-      make("span", "ao3mail-avatar", initials(info.sender))
-    );
-    topbar.querySelector(".ao3mail-restore").type = "button";
-
-    const ribbon = make("nav", "ao3mail-ribbon");
-    const replyGroup = make("span", "ao3mail-reply-group");
-    const replyMenu = make("select", "ao3mail-reply-menu");
-    replyMenu.setAttribute("aria-label", "回复选项");
-    [
-      ["", "", "⌄"],
-      ["reply", "replyWork", tr("replyWork")],
-      ["comments", "viewComments", tr("viewComments")]
-    ].forEach(([value, key, label]) => {
-      const option = make("option", "", label);
-      option.value = value;
-      if (key) option.dataset.i18n = key;
-      replyMenu.appendChild(option);
+  function refreshRowStates() {
+    if (!state.shell) return;
+    state.shell.querySelectorAll(".owa-message").forEach((row) => {
+      const item = state.rows[Number(row.dataset.row)];
+      if (!item) return;
+      const unread = !isRead(item);
+      row.classList.toggle("is-unread", unread);
+      const icon = row.querySelector(".owa-row-icon");
+      if (icon) icon.textContent = unread ? "●" : "○";
     });
-    append(replyGroup, makeAction("ao3mail-reply", "reply", "前往作品评论框"), replyMenu);
-    append(ribbon,
-      localized("button", "ao3mail-new", "newMail"),
-      makeAction("ao3mail-delete", "delete", "从 AO3 历史记录中删除"),
-      makeAction("ao3mail-bookmark", "bookmark", "收藏当前 AO3 作品"),
-      makeAction("ao3mail-mark", "mark", "Mark for Later / Mark as Read"),
-      replyGroup,
-      makeAction("ao3mail-forward", "forward", "复制当前作品链接"),
-      makeAction("ao3mail-rss", "rss", "打开当前页面的 RSS/Atom 源")
-    );
-    ribbon.querySelector(".ao3mail-new").type = "button";
+  }
 
-    const layout = make("main", "ao3mail-layout");
-    const folders = make("aside", "ao3mail-folders");
-    const account = make("div", "ao3mail-account");
-    const accountText = make("div");
-    append(accountText, localized("b", "", "mailbox"), make("small", "", "AO3 Workspace"));
-    append(account, make("span", "", initials(info.sender)), accountText);
-    append(folders,
-      account,
-      makeFolder("https://archiveofourown.org/", "⌂", "home"),
-      makeFolder("https://archiveofourown.org/works", "▣", "inbox", unread, true),
-      makeFolder("https://archiveofourown.org/bookmarks", "☆", "starred"),
-      makeFolder("https://archiveofourown.org/works/search", "⌕", "searchFolders"),
-      makeFolder("https://archiveofourown.org/users", "♙", "contacts"),
-      localized("div", "folder-title", "folders"),
-      makeFolder("https://archiveofourown.org/bookmarks", "⌁", "favorites"),
-      makeFolder("https://archiveofourown.org/collections", "◇", "projects"),
-      makeFolder("https://archiveofourown.org/tags", "▤", "tags"),
-      makeFolder("https://archiveofourown.org/about", "ⓘ", "notices")
-    );
-    const folderFoot = make("div", "ao3mail-folder-foot");
-    ["▧", "▦", "♙", "✓"].forEach((symbol) => folderFoot.appendChild(make("span", "", symbol)));
-    folders.appendChild(folderFoot);
 
-    const listPane = make("section", "ao3mail-listpane");
-    const listHead = make("div", "ao3mail-listhead");
-    const listTitle = make("div");
-    append(listTitle, localized("b", "", "inbox"), make("small", "ao3mail-count", `${rows.length} ${tr("messages")}`));
-    const listControls = make("div", "ao3mail-list-controls");
-    const filterButton = localized("button", "ao3mail-filter", "filter");
-    filterButton.type = "button";
-    const previousButton = localized("button", "ao3mail-page-button ao3mail-previous", "previous");
-    previousButton.type = "button";
-    const pageStatus = make("span", "ao3mail-page-status", "1 / 1");
-    const nextButton = localized("button", "ao3mail-page-button ao3mail-next", "next");
-    nextButton.type = "button";
-    const collapseButton = makeButton("ao3mail-collapse", "«", tr("minimize"));
-    collapseButton.dataset.i18nTitle = "minimize";
-    append(listControls, filterButton, previousButton, pageStatus, nextButton, collapseButton);
-    append(listHead, listTitle, listControls);
-    const messages = make("div", "ao3mail-messages");
-    rows.forEach((item, index) => messages.appendChild(makeMessageRow(item, index)));
-    const empty = localized("div", "ao3mail-empty", "noMatches");
-    empty.hidden = true;
-    messages.appendChild(empty);
-    append(listPane, listHead, localized("div", "ao3mail-week", "lastWeek"), messages);
+  /* ------------------------------- ⑩ 只搬运主内容节点，其余原地隐藏 */
 
-    const reading = make("section", "ao3mail-reading");
-    const subject = make("div", "ao3mail-subject");
-    const expandButton = localized("button", "ao3mail-expand", "expand");
-    expandButton.type = "button";
-    append(subject,
-      expandButton,
-      make("span", "ao3mail-pin", "♛"),
-      make("h1", "", info.title),
-      makeButton("ao3mail-more", "•••")
-    );
-    const sender = make("div", "ao3mail-sender");
-    const senderText = make("div");
-    const recipient = make("span");
-    append(recipient,
-      localized("span", "ao3mail-recipient-label", "recipient"),
-      document.createTextNode("　"),
-      make("span", "ao3mail-online", "●"),
-      document.createTextNode(" "),
-      localized("span", "ao3mail-current-user", "currentUser")
-    );
-    append(senderText,
-      make("strong", "", `${info.sender} <notifications@archive.internal>`),
-      recipient
-    );
-    append(sender,
-      make("span", "ao3mail-sender-avatar", initials(info.sender)),
-      senderText,
-      localized("time", "", "today")
-    );
-    const original = make("div", "ao3mail-original");
-    append(reading,
-      subject,
-      sender,
-      localized("div", "ao3mail-notice", "externalNotice"),
-      original
-    );
+  function pickContentRoot() {
+    return document.getElementById("main")
+      || document.getElementById("inner")
+      || document.querySelector("#workskin")
+      || null;
+  }
 
-    append(layout, folders, listPane, reading);
-    append(shell, topbar, ribbon, layout);
-    return shell;
+  function moveContentInto(original) {
+    const root = pickContentRoot();
+    if (root && root.parentNode) {
+      state.placeholder = document.createComment("owa-content");
+      root.parentNode.insertBefore(state.placeholder, root);
+      original.appendChild(root);
+      state.contentNode = root;
+      return;
+    }
+    // 极少数没有 #main 的页面：退回旧的整体搬运方式。
+    state.legacyNodes = Array.from(document.body.childNodes).filter((node) => node !== state.shell && node !== state.veil);
+    state.legacyNodes.forEach((node) => original.appendChild(node));
+  }
+
+  function restoreContent() {
+    if (state.contentNode && state.placeholder && state.placeholder.parentNode) {
+      state.placeholder.parentNode.insertBefore(state.contentNode, state.placeholder);
+      state.placeholder.remove();
+    } else if (state.legacyNodes) {
+      const fragment = document.createDocumentFragment();
+      state.legacyNodes.forEach((node) => fragment.appendChild(node));
+      document.body.appendChild(fragment);
+    }
+    state.contentNode = null;
+    state.placeholder = null;
+    state.legacyNodes = null;
   }
 
   function apply() {
-    if (state.enabled || document.getElementById("ao3mail-shell")) return;
+    if (state.enabled || document.getElementById("owa-shell")) return;
     state.scrollY = window.scrollY;
     state.currentPage = 1;
     state.filter = "";
+    refreshAccount();
     const info = pageInfo();
     const rows = getRows();
     state.rows = rows;
-    state.originalNodes = Array.from(document.body.childNodes);
 
     state.shell = buildShell(info, rows);
     document.body.appendChild(state.shell);
-    const original = state.shell.querySelector(".ao3mail-original");
-    state.originalNodes.forEach((node) => original.appendChild(node));
-    document.documentElement.classList.add("ao3mail-active");
+    moveContentInto(state.shell.querySelector(".owa-original"));
+    document.documentElement.classList.add("owa-active");
     state.enabled = true;
+    applyChrome();
     bindUI();
-    window.scrollTo(0, 0);
+    markCurrentPageRead();
+    restorePosition();
   }
 
   function remove() {
-    const shell = document.getElementById("ao3mail-shell");
+    const shell = document.getElementById("owa-shell");
     if (!shell) return;
-    const original = shell.querySelector(".ao3mail-original");
-    const fragment = document.createDocumentFragment();
-    while (original.firstChild) fragment.appendChild(original.firstChild);
+    restoreContent();
     shell.remove();
-    document.body.appendChild(fragment);
-    document.documentElement.classList.remove("ao3mail-active");
+    document.documentElement.classList.remove("owa-active");
     state.enabled = false;
     state.shell = null;
     state.rows = [];
     state.currentPage = 1;
     state.filter = "";
+    state.historyQueue = [];
+    restoreChrome();
+    flushMarks();
     requestAnimationFrame(() => window.scrollTo(0, state.scrollY));
   }
 
   function setEnabled(value, remember = true) {
     value ? apply() : remove();
-    if (remember && typeof browser !== "undefined" && browser.storage) {
-      browser.storage.local.set({ ao3mailEnabled: Boolean(value) });
-    }
+    if (remember && store) store.set({ [KEYS.enabled]: Boolean(value) }).catch(() => {});
   }
 
+  function markCurrentPageRead() {
+    if (!/\/(works|series)\/\d+/.test(location.pathname)) return;
+    markRead(readKey(location.href));
+    refreshRowStates();
+    updateTitle();
+  }
+
+  /* --------------------------------------------------------- 工具栏动作 */
+
   function activeItem() {
-    const selected = state.shell && state.shell.querySelector(".ao3mail-message.is-active");
+    const selected = state.shell && state.shell.querySelector(".owa-message.is-active");
     const index = selected ? Number(selected.dataset.row) : 0;
     return state.rows[Number.isInteger(index) ? index : 0] || state.rows[0] || null;
   }
 
   function setNotice(message, type = "info") {
-    const notice = state.shell && state.shell.querySelector(".ao3mail-notice");
+    const notice = state.shell && state.shell.querySelector(".owa-notice");
     if (!notice) return;
     notice.textContent = `${type === "success" ? "✓" : type === "error" ? "!" : "ⓘ"}　${message}`;
     notice.dataset.type = type;
@@ -392,7 +772,7 @@
       const local = item.sourceElement.querySelector(selector);
       if (local) return local;
     }
-    const original = state.shell && state.shell.querySelector(".ao3mail-original");
+    const original = state.shell && state.shell.querySelector(".owa-original");
     return original ? original.querySelector(selector) : null;
   }
 
@@ -409,44 +789,47 @@
 
   async function deleteFromHistory() {
     const item = activeItem();
-    if (item && item.historyDelete && item.sourceElement && !item.sourceElement.isConnected) {
+    const detached = item && item.historyDelete && (!item.sourceElement || !item.sourceElement.isConnected);
+    if (detached) {
       const request = item.historyDelete;
-      const body = new URLSearchParams(request.fields);
-      setNotice("正在从 AO3 历史记录中删除当前条目……");
+      setNotice(state.language === "zh" ? "正在从 AO3 历史记录中删除当前条目……" : "Deleting from AO3 history…");
       try {
         const response = await fetch(request.action, {
           method: request.method,
           credentials: "same-origin",
           headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-          body
+          body: new URLSearchParams(request.fields)
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         removeHistoryItem(item);
-        setNotice("已从 AO3 历史记录中删除。", "success");
+        setNotice(state.language === "zh" ? "已从 AO3 历史记录中删除。" : "Removed from AO3 history.", "success");
       } catch (_) {
-        setNotice("删除失败，请打开该条目的 AO3 历史记录页面后重试。", "error");
+        setNotice(state.language === "zh"
+          ? "删除失败，请刷新 History 页面后重试。"
+          : "Delete failed. Reload the History page and try again.", "error");
       }
       return;
     }
     const button = findAction('input[type="submit"][value*="Delete from History"], button[value*="Delete from History"]');
     if (!button) {
-      setNotice("当前邮件没有可用的“Delete from History”操作。请在 AO3 历史记录页面使用。", "error");
+      setNotice(state.language === "zh"
+        ? "当前邮件没有可用的“Delete from History”操作。"
+        : "No “Delete from History” action for this message.", "error");
       return;
     }
-    setNotice("正在从 AO3 历史记录中删除当前条目……");
     button.click();
   }
 
   function removeHistoryItem(item) {
     const index = state.rows.indexOf(item);
     if (index < 0) return;
-    const row = state.shell.querySelector(`.ao3mail-message[data-row="${index}"]`);
+    const row = state.shell.querySelector(`.owa-message[data-row="${index}"]`);
     if (row) row.remove();
     state.rows.splice(index, 1);
-    state.shell.querySelectorAll(".ao3mail-message").forEach((message, nextIndex) => {
+    state.shell.querySelectorAll(".owa-message").forEach((message, nextIndex) => {
       message.dataset.row = String(nextIndex);
     });
-    const next = state.shell.querySelector(".ao3mail-message");
+    const next = state.shell.querySelector(".owa-message");
     if (next) next.classList.add("is-active");
     renderMailboxPage();
   }
@@ -464,7 +847,7 @@
     }
     const url = workUrl(item);
     if (!url) {
-      setNotice("当前邮件不是可收藏的 AO3 作品。", "error");
+      setNotice(state.language === "zh" ? "当前邮件不是可收藏的 AO3 作品。" : "This message is not a bookmarkable work.", "error");
       return;
     }
     location.assign(`${url}/bookmarks/new`);
@@ -474,40 +857,35 @@
     const selector = 'input[type="submit"][value="Mark for Later"], input[type="submit"][value="Mark as Read"], button[value="Mark for Later"], button[value="Mark as Read"]';
     const button = findAction(selector);
     if (button) {
-      setNotice(`正在执行“${button.value || button.textContent.trim()}”……`);
       button.click();
       return;
     }
     const url = workUrl();
     if (!url) {
-      setNotice("当前邮件没有可用的标记操作。", "error");
+      setNotice(state.language === "zh" ? "当前邮件没有可用的标记操作。" : "No mark action available.", "error");
       return;
     }
-    sessionStorage.setItem("ao3mailPendingAction", "mark");
+    sessionStorage.setItem("owaPendingAction", "mark");
     location.assign(url);
   }
 
   function replyToWork() {
-    const original = state.shell.querySelector(".ao3mail-original");
+    const original = state.shell.querySelector(".owa-original");
     const textarea = original.querySelector('textarea[name="comment[content]"], textarea[id*="comment_content"], #add_comment textarea');
     if (textarea) {
-      textarea.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrollTo(textarea, "center");
       setTimeout(() => textarea.focus(), 350);
-      setNotice("已定位到作品回复框。", "success");
       return;
     }
     const url = workUrl();
-    if (url) {
-      location.assign(`${url}#comments`);
-    } else {
-      setNotice("当前邮件没有可回复的作品页面。", "error");
-    }
+    if (url) location.assign(`${url}#comments`);
+    else setNotice(state.language === "zh" ? "当前邮件没有可回复的作品页面。" : "No comment box available.", "error");
   }
 
   function viewComments() {
     const url = workUrl();
     if (url) location.assign(`${url}#comments`);
-    else setNotice("当前邮件没有评论区。", "error");
+    else setNotice(state.language === "zh" ? "当前邮件没有评论区。" : "No comments for this message.", "error");
   }
 
   async function copyWorkLink() {
@@ -515,7 +893,7 @@
     const url = workUrl(item) || (item && new URL(item.href, location.href).href) || location.href;
     try {
       await navigator.clipboard.writeText(url);
-      setNotice("作品链接已复制，可粘贴到邮件或聊天中。", "success");
+      setNotice(state.language === "zh" ? "作品链接已复制。" : "Link copied.", "success");
     } catch (_) {
       const input = make("input");
       input.value = url;
@@ -523,18 +901,23 @@
       input.select();
       const copied = document.execCommand("copy");
       input.remove();
-      setNotice(copied ? "作品链接已复制。" : "无法自动复制，请从地址栏复制链接。", copied ? "success" : "error");
+      setNotice(copied
+        ? (state.language === "zh" ? "作品链接已复制。" : "Link copied.")
+        : (state.language === "zh" ? "无法自动复制，请从地址栏复制。" : "Copy failed, use the address bar."),
+        copied ? "success" : "error");
     }
   }
 
   function openRssFeed() {
-    const feed = document.querySelector('link[type="application/atom+xml"][href], link[type="application/rss+xml"][href], .ao3mail-original a[href$=".atom"], .ao3mail-original a[href*="/feed"]');
+    const feed = document.querySelector('link[type="application/atom+xml"][href], link[type="application/rss+xml"][href], .owa-original a[href$=".atom"], .owa-original a[href*="/feed"]');
     if (feed && feed.href) location.assign(feed.href);
-    else setNotice("当前 AO3 页面没有提供 RSS/Atom 源。标签页或系列页通常会提供。", "error");
+    else setNotice(state.language === "zh" ? "当前页面没有提供 RSS/Atom 源。" : "No RSS/Atom feed on this page.", "error");
   }
 
+  /* ----------------------------------------------------- 列表筛选与分页 */
+
   function filterMessages(query) {
-    state.filter = query.trim().toLocaleLowerCase();
+    state.filter = String(query == null ? "" : query).trim().toLocaleLowerCase();
     state.currentPage = 1;
     renderMailboxPage();
   }
@@ -564,32 +947,48 @@
     state.currentPage = Math.min(Math.max(1, state.currentPage), totalPages);
     const start = (state.currentPage - 1) * state.pageSize;
     const visible = new Set(matches.slice(start, start + state.pageSize));
-    state.shell.querySelectorAll(".ao3mail-message").forEach((row) => {
+    state.shell.querySelectorAll(".owa-message").forEach((row) => {
       row.hidden = !visible.has(Number(row.dataset.row));
     });
-    const count = state.shell.querySelector(".ao3mail-count");
-    const empty = state.shell.querySelector(".ao3mail-empty");
-    const status = state.shell.querySelector(".ao3mail-page-status");
-    const previous = state.shell.querySelector(".ao3mail-previous");
-    const next = state.shell.querySelector(".ao3mail-next");
-    if (count) count.textContent = state.filter
-      ? `${matches.length} ${tr("results")}`
-      : `${state.rows.length} ${tr("messages")}${isHistoryPage() && !state.historyLoading ? ` · ${tr("allHistory")}` : ""}`;
+    const count = state.shell.querySelector(".owa-count");
+    const empty = state.shell.querySelector(".owa-empty");
+    const status = state.shell.querySelector(".owa-page-status");
+    const previous = state.shell.querySelector(".owa-previous");
+    const next = state.shell.querySelector(".owa-next");
+    const more = state.shell.querySelector(".owa-more-mail");
+    const folderCount = state.shell.querySelector(".owa-folder-count:not([data-fixed])");
+    if (count && !state.historyLoading) {
+      count.textContent = state.filter
+        ? `${matches.length} ${tr("results")}`
+        : `${state.rows.length} ${tr("messages")}${isHistoryPage() && !state.historyQueue.length ? ` · ${tr("allHistory")}` : ""}`;
+    }
     if (empty) empty.hidden = matches.length !== 0;
     if (status) status.textContent = `${state.currentPage} / ${totalPages}`;
     if (previous) previous.disabled = state.currentPage <= 1;
     if (next) next.disabled = state.currentPage >= totalPages;
+    if (more) {
+      more.hidden = !state.historyQueue.length;
+      more.disabled = state.historyLoading;
+      more.textContent = state.historyLoading ? tr("loading") : tr("loadMore");
+    }
+    if (folderCount) folderCount.textContent = String(unreadCount());
+    updateTitle();
   }
 
   function changeMailboxPage(delta) {
     state.currentPage += delta;
     renderMailboxPage();
-    const messages = state.shell.querySelector(".ao3mail-messages");
+    const messages = state.shell.querySelector(".owa-messages");
     if (messages) messages.scrollTop = 0;
+    const matches = matchingMessageIndexes();
+    const totalPages = Math.max(1, Math.ceil(matches.length / state.pageSize));
+    if (delta > 0 && state.currentPage >= totalPages) loadHistoryBatch(NEXT_BATCH);
   }
 
   function applyLanguage(remember = true) {
     if (!state.shell) return;
+    // 英文界面下文件夹名本来就是英文，再挂一遍原名是重复的
+    state.shell.dataset.lang = state.language;
     state.shell.querySelectorAll("[data-i18n]").forEach((element) => {
       element.textContent = tr(element.dataset.i18n);
     });
@@ -597,15 +996,18 @@
       element.title = tr(element.dataset.i18nTitle);
       element.setAttribute("aria-label", tr(element.dataset.i18nTitle));
     });
-    const search = state.shell.querySelector(".ao3mail-search input");
+    if (state.veil) {
+      state.veil.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = tr(el.dataset.i18n); });
+    }
+    const search = state.shell.querySelector(".owa-search input");
     if (search) search.placeholder = tr("search");
-    const language = state.shell.querySelector(".ao3mail-language");
+    const language = state.shell.querySelector(".owa-language");
     if (language) language.textContent = state.language === "zh" ? "EN" : "中文";
     renderMailboxPage();
-    if (remember && typeof browser !== "undefined" && browser.storage) {
-      browser.storage.local.set({ ao3mailLanguage: state.language });
-    }
+    if (remember && store) store.set({ [KEYS.language]: state.language }).catch(() => {});
   }
+
+  /* ------------------------------------- ⑨ History 增量抓取 / 缓存 / 退避 */
 
   function isHistoryPage() {
     return /^\/users\/[^/]+\/readings\/?$/.test(location.pathname);
@@ -622,9 +1024,78 @@
     return last;
   }
 
-  function appendHistoryRows(rows) {
-    const messages = state.shell && state.shell.querySelector(".ao3mail-messages");
-    const empty = state.shell && state.shell.querySelector(".ao3mail-empty");
+  function cacheKey(page) {
+    return `${location.pathname}#${page}`;
+  }
+
+  function packRow(row) {
+    return { t: row.title, s: row.sender, p: row.preview, d: row.date, h: row.href, x: row.historyDelete || null };
+  }
+
+  function unpackRow(packed) {
+    return {
+      title: packed.t, sender: packed.s, preview: packed.p, date: packed.d, href: packed.h,
+      key: readKey(packed.h), historyDelete: packed.x, sourceElement: null, active: false
+    };
+  }
+
+  function trimCache() {
+    const entries = Object.entries(state.cache);
+    const fresh = entries.filter(([, value]) => value && Date.now() - value.t < CACHE_TTL);
+    fresh.sort((a, b) => b[1].t - a[1].t);
+    state.cache = Object.fromEntries(fresh.slice(0, CACHE_MAX));
+  }
+
+  function scheduleCacheSave() {
+    if (!store) return;
+    clearTimeout(state.cacheTimer);
+    state.cacheTimer = setTimeout(() => {
+      trimCache();
+      store.set({ [KEYS.cache]: state.cache }).catch(() => {});
+    }, 1500);
+  }
+
+  async function fetchText(url, tries = 3) {
+    let lastError = null;
+    for (let attempt = 0; attempt < tries; attempt += 1) {
+      try {
+        const response = await fetch(url, { credentials: "same-origin" });
+        if (response.status === 429 || response.status === 503) {
+          await sleep(2000 * Math.pow(2, attempt));
+          lastError = new Error(`HTTP ${response.status}`);
+          continue;
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.text();
+      } catch (error) {
+        lastError = error;
+        if (attempt < tries - 1) await sleep(600 * Math.pow(2, attempt));
+      }
+    }
+    throw lastError || new Error("request failed");
+  }
+
+  async function loadHistoryPage(page) {
+    const key = cacheKey(page);
+    const cached = state.cache[key];
+    if (cached && Date.now() - cached.t < CACHE_TTL && Array.isArray(cached.r)) {
+      return cached.r.map(unpackRow);
+    }
+    const url = new URL(location.href);
+    url.searchParams.set("page", String(page));
+    const html = await fetchText(url.href);
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const rows = Array.from(doc.querySelectorAll("li.work.blurb, li.bookmark.blurb, li.series.blurb"))
+      .map((blurb) => rowFromBlurb(blurb, url.href))
+      .filter(Boolean);
+    state.cache[key] = { t: Date.now(), r: rows.map(packRow) };
+    scheduleCacheSave();
+    return rows.map((row) => Object.assign(row, { sourceElement: null }));
+  }
+
+  function appendRows(rows) {
+    const messages = state.shell && state.shell.querySelector(".owa-messages");
+    const empty = state.shell && state.shell.querySelector(".owa-empty");
     if (!messages) return 0;
     const known = new Set(state.rows.map((item) => item.href));
     let added = 0;
@@ -639,62 +1110,62 @@
       messages.insertBefore(message, empty || null);
       added += 1;
     });
-    renderMailboxPage();
     return added;
   }
 
-  async function loadAllHistory() {
-    if (!isHistoryPage() || state.historyLoading) return;
-    const totalPages = lastHistoryPage(document);
-    if (totalPages <= 1) return;
-    state.historyLoading = true;
-    const count = state.shell.querySelector(".ao3mail-count");
-    const currentPage = Number(new URL(location.href).searchParams.get("page")) || 1;
-    const pages = [];
-    for (let page = 1; page <= totalPages; page += 1) {
-      if (page !== currentPage) pages.push(page);
+  function prepareHistoryQueue() {
+    if (!isHistoryPage()) return;
+    state.historyTotal = lastHistoryPage(document);
+    const current = Number(new URL(location.href).searchParams.get("page")) || 1;
+    state.historyQueue = [];
+    for (let page = 1; page <= state.historyTotal; page += 1) {
+      if (page !== current) state.historyQueue.push(page);
     }
-    let completed = 0;
-    if (count) count.textContent = `正在读取全部 History：0/${pages.length} 页`;
+  }
 
+  async function loadHistoryBatch(size = NEXT_BATCH) {
+    if (state.historyLoading || !state.historyQueue.length || !state.enabled) return;
+    state.historyLoading = true;
+    renderMailboxPage();
+    const count = state.shell.querySelector(".owa-count");
+    const batch = state.historyQueue.splice(0, size);
+    const failed = [];
     try {
-      for (let start = 0; start < pages.length; start += 4) {
+      for (let start = 0; start < batch.length; start += CONCURRENCY) {
         if (!state.enabled || !state.shell) return;
-        const batch = pages.slice(start, start + 4);
-        const results = await Promise.all(batch.map(async (page) => {
-          const url = new URL(location.href);
-          url.searchParams.set("page", String(page));
-          const response = await fetch(url.href, { credentials: "same-origin" });
-          if (!response.ok) throw new Error(`History page ${page}: HTTP ${response.status}`);
-          const html = await response.text();
-          const doc = new DOMParser().parseFromString(html, "text/html");
-          return Array.from(doc.querySelectorAll("li.work.blurb, li.bookmark.blurb, li.series.blurb"))
-            .map((blurb) => rowFromBlurb(blurb, url.href))
-            .filter(Boolean);
+        const slice = batch.slice(start, start + CONCURRENCY);
+        if (count) {
+          const done = state.historyTotal - state.historyQueue.length - (batch.length - start);
+          count.textContent = `${tr("historyProgress")} ${Math.max(1, done)}/${state.historyTotal} ${tr("pages")} · ${state.rows.length} ${tr("messages")}`;
+        }
+        const results = await Promise.all(slice.map(async (page) => {
+          try {
+            return await loadHistoryPage(page);
+          } catch (_) {
+            failed.push(page);
+            return [];
+          }
         }));
-        results.forEach(appendHistoryRows);
-        completed += batch.length;
-        if (count) count.textContent = `正在读取全部 History：${completed}/${pages.length} 页 · ${state.rows.length} 封邮件`;
-        await new Promise((resolve) => setTimeout(resolve, 120));
+        results.forEach(appendRows);
+        await sleep(250);
       }
-      renderMailboxPage();
-      setNotice(`已载入全部 History，共 ${state.rows.length} 条。`, "success");
-    } catch (_) {
-      if (count) count.textContent = `${state.rows.length} 封邮件 · History 载入未完成`;
-      setNotice("部分 History 页面载入失败，可刷新页面后重试。", "error");
     } finally {
+      if (failed.length) state.historyQueue = failed.concat(state.historyQueue);
       state.historyLoading = false;
       renderMailboxPage();
+      if (failed.length) setNotice(tr("historyPartial"), "error");
+      else if (!state.historyQueue.length && isHistoryPage()) setNotice(tr("loadedAll"), "success");
     }
   }
 
   function runPendingAction() {
-    if (sessionStorage.getItem("ao3mailPendingAction") !== "mark") return;
-    sessionStorage.removeItem("ao3mailPendingAction");
+    if (sessionStorage.getItem("owaPendingAction") !== "mark") return;
+    sessionStorage.removeItem("owaPendingAction");
     const button = findAction('input[type="submit"][value="Mark for Later"], input[type="submit"][value="Mark as Read"]');
     if (button) setTimeout(() => button.click(), 250);
-    else setNotice("已打开作品页，但未找到可用的 Mark for Later 按钮。", "error");
   }
+
+  /* ------------------------------------------------------------ 事件绑定 */
 
   function bindMessageRow(row) {
     if (row.dataset.bound === "1") return;
@@ -702,27 +1173,33 @@
     row.addEventListener("click", (event) => {
       const href = row.getAttribute("href");
       event.preventDefault();
-      state.shell.querySelectorAll(".ao3mail-message").forEach((el) => el.classList.remove("is-active"));
+      state.shell.querySelectorAll(".owa-message").forEach((el) => el.classList.remove("is-active"));
       row.classList.add("is-active");
+      const item = state.rows[Number(row.dataset.row)];
       if (isHistoryPage()) {
-        const item = state.rows[Number(row.dataset.row)];
         if (item && item.sourceElement && item.sourceElement.isConnected) {
-          item.sourceElement.scrollIntoView({ behavior: "smooth", block: "start" });
+          scrollTo(item.sourceElement);
         }
-        setNotice("已选择 History 条目。双击邮件可打开作品。", "success");
         return;
       }
       if (href && href.startsWith("#")) {
-        const target = state.shell.querySelector(href);
-        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
+        if (item) {
+          markRead(item.key);
+          refreshRowStates();
+          renderMailboxPage();
+        }
+        scrollTo(state.shell.querySelector(href));
       }
-      setNotice("已选择邮件。双击可打开作品。", "success");
     });
     row.addEventListener("dblclick", (event) => {
       event.preventDefault();
       const href = row.getAttribute("href");
-      if (href) location.assign(new URL(href, location.href).href);
+      const item = state.rows[Number(row.dataset.row)];
+      if (item) markRead(item.key);
+      if (href) {
+        flushMarks();
+        location.assign(new URL(href, location.href).href);
+      }
     });
     row.addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return;
@@ -732,59 +1209,203 @@
     });
   }
 
+  /* AO3 原生分页兜底：即使外框、浮动侧栏或其他元素挡在链接上方，
+     也能把点击正确送到对应的分页链接。 */
+  function bindPagination(reading) {
+    if (!reading) return;
+    const PAGER = ".pagination a[href], li.next > a[href], li.previous > a[href]";
+    reading.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!target || typeof target.closest !== "function") return;
+
+      const direct = target.closest(PAGER);
+      if (direct) {
+        event.preventDefault();
+        flushMarks();
+        location.assign(direct.href);
+        return;
+      }
+
+      // 点在按钮框的空白处、或被上层元素挡住时，按坐标找回下面的分页链接。
+      if (target.closest("a[href], button, input, select, textarea")) return;
+      if (typeof document.elementsFromPoint !== "function") return;
+      const stack = document.elementsFromPoint(event.clientX, event.clientY) || [];
+      for (const element of stack) {
+        const link = element && typeof element.closest === "function" ? element.closest(PAGER) : null;
+        if (link && reading.contains(link)) {
+          event.preventDefault();
+          flushMarks();
+          location.assign(link.href);
+          return;
+        }
+      }
+    }, true);
+  }
+
+  // 功能区/发件人行里那些只在部分 AO3 页面存在的动作
+  function bindPageAction(selector, matcher) {
+    const button = state.shell && state.shell.querySelector(selector);
+    if (!button) return;
+    const node = pageAction(matcher);
+    if (!node) {
+      button.hidden = true;
+      return;
+    }
+    button.hidden = false;
+    button.addEventListener("click", () => {
+      const target = pageAction(matcher);
+      if (!target) {
+        setNotice(tr("noAction"), "error");
+        return;
+      }
+      const href = target.getAttribute && target.getAttribute("href");
+      if (href) {
+        flushMarks();
+        location.assign(new URL(href, location.href).href);
+      } else {
+        target.click();
+      }
+    });
+  }
+
   function bindUI() {
-    state.shell.querySelector(".ao3mail-restore").addEventListener("click", () => setEnabled(false));
-    state.shell.querySelector(".ao3mail-language").addEventListener("click", () => {
+    const shell = state.shell;
+
+    // 皮肤之间的控件不完全一致，所有绑定都按“存在才绑”处理。
+    const on = (selector, handler, event = "click") => {
+      const node = shell.querySelector(selector);
+      if (node) node.addEventListener(event, handler);
+      return node;
+    };
+
+    on(".owa-restore", () => setEnabled(false));
+    on(".owa-language", () => {
       state.language = state.language === "zh" ? "en" : "zh";
       applyLanguage(true);
     });
-    state.shell.querySelector(".ao3mail-filter").addEventListener("click", () => {
-      const value = window.prompt(state.language === "zh" ? "筛选当前邮件列表" : "Filter the current mail list", state.filter);
-      if (value !== null) filterMessages(value);
+    on(".owa-skin-switch", () => switchSkin(nextSkinId()));
+    on(".owa-filter", () => {
+      const value = window.prompt(tr("filterPrompt"), state.filter);
+      if (value !== null && value !== undefined) filterMessages(value);
     });
-    state.shell.querySelector(".ao3mail-previous").addEventListener("click", () => changeMailboxPage(-1));
-    state.shell.querySelector(".ao3mail-next").addEventListener("click", () => changeMailboxPage(1));
-    state.shell.querySelector(".ao3mail-collapse").addEventListener("click", () => {
-      state.shell.classList.add("is-reading-focus");
+    on(".owa-previous", () => changeMailboxPage(-1));
+    on(".owa-next", () => changeMailboxPage(1));
+    on(".owa-collapse", () => shell.classList.add("is-reading-focus"));
+    on(".owa-expand", () => shell.classList.remove("is-reading-focus"));
+    on(".owa-new", () => location.assign("https://archiveofourown.org/works/new"));
+    on(".owa-delete", deleteFromHistory);
+    on(".owa-bookmark", bookmarkWork);
+    on(".owa-mark", markWork);
+    on(".owa-reply", replyToWork);
+    on(".owa-comments", viewComments);
+    on(".owa-forward", copyWorkLink);
+    on(".owa-rss", openRssFeed);
+    bindPageAction(".owa-edit-works", /^Edit Works$/i);
+    bindPageAction(".owa-subscribe", /^(Unsubscribe|Subscribe)$/i);
+    on(".owa-more-mail", () => loadHistoryBatch(NEXT_BATCH));
+
+    const menu = shell.querySelector(".owa-menu");
+    const moreButton = shell.querySelector(".owa-more");
+    if (menu && moreButton) {
+      moreButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        menu.classList.toggle("is-open");
+      });
+      if (!state.menuGuard) {
+        state.menuGuard = true;
+        document.addEventListener("click", () => {
+          const open = document.querySelector(".owa-menu.is-open");
+          if (open) open.classList.remove("is-open");
+        });
+      }
+    }
+    const closeMenu = () => { if (menu) menu.classList.remove("is-open"); };
+    on(".owa-menu-lock", () => { setAutoLock(!state.autoLock); closeMenu(); });
+    on(".owa-menu-skin", () => { closeMenu(); switchSkin(nextSkinId()); });
+    on(".owa-menu-clear", () => {
+      state.marks = { read: {}, pos: {} };
+      state.cache = {};
+      if (store) store.set({ [KEYS.marks]: state.marks, [KEYS.cache]: state.cache }).catch(() => {});
+      refreshRowStates();
+      renderMailboxPage();
+      setNotice(tr("cleared"), "success");
+      closeMenu();
     });
-    state.shell.querySelector(".ao3mail-expand").addEventListener("click", () => {
-      state.shell.classList.remove("is-reading-focus");
-    });
-    state.shell.querySelector(".ao3mail-new").addEventListener("click", () => location.assign("https://archiveofourown.org/works/new"));
-    state.shell.querySelector(".ao3mail-delete").addEventListener("click", deleteFromHistory);
-    state.shell.querySelector(".ao3mail-bookmark").addEventListener("click", bookmarkWork);
-    state.shell.querySelector(".ao3mail-mark").addEventListener("click", markWork);
-    state.shell.querySelector(".ao3mail-reply").addEventListener("click", replyToWork);
-    state.shell.querySelector(".ao3mail-forward").addEventListener("click", copyWorkLink);
-    state.shell.querySelector(".ao3mail-rss").addEventListener("click", openRssFeed);
-    const replyMenu = state.shell.querySelector(".ao3mail-reply-menu");
-    replyMenu.addEventListener("change", () => {
-      if (replyMenu.value === "reply") replyToWork();
-      if (replyMenu.value === "comments") viewComments();
-      replyMenu.value = "";
-    });
-    const search = state.shell.querySelector(".ao3mail-search");
-    const searchInput = search.querySelector("input");
-    search.addEventListener("submit", (event) => {
-      event.preventDefault();
-      if (!searchAllAo3Works(searchInput.value)) searchInput.focus();
-    });
-    state.shell.querySelectorAll(".ao3mail-message").forEach(bindMessageRow);
+
+    const replyMenu = shell.querySelector(".owa-reply-menu");
+    if (replyMenu) {
+      replyMenu.addEventListener("change", () => {
+        if (replyMenu.value === "reply") replyToWork();
+        if (replyMenu.value === "comments") viewComments();
+        replyMenu.value = "";
+      });
+    }
+
+    const search = shell.querySelector(".owa-search");
+    if (search) {
+      const searchInput = search.querySelector("input");
+      search.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!searchAllAo3Works(searchInput ? searchInput.value : "")) {
+          if (searchInput) searchInput.focus();
+        }
+      });
+    }
+
+    bindPagination(shell.querySelector(".owa-reading"));
+
+    const messages = shell.querySelector(".owa-messages");
+    if (messages) {
+      messages.addEventListener("scroll", () => {
+        if (messages.scrollTop + messages.clientHeight >= messages.scrollHeight - 60) {
+          loadHistoryBatch(NEXT_BATCH);
+        }
+      }, { passive: true });
+    }
+
+    shell.querySelectorAll(".owa-message").forEach(bindMessageRow);
+    bindProgressTracking();
     applyLanguage(false);
+    prepareHistoryQueue();
     renderMailboxPage();
     runPendingAction();
-    loadAllHistory();
+    if (isHistoryPage()) loadHistoryBatch(FIRST_BATCH);
   }
 
-  if (typeof browser !== "undefined" && browser.runtime) {
+  /* ------------------------------------------------------------- 启动 */
+
+  window.addEventListener("pagehide", flushMarks);
+  bindGlobalGuards();
+
+  if (typeof browser !== "undefined" && browser.runtime && store) {
     browser.runtime.onMessage.addListener((message) => {
-      if (message && message.type === "AO3MAIL_TOGGLE") setEnabled(!state.enabled);
+      if (!message) return;
+      if (message.type === "OWA_TOGGLE") setEnabled(!state.enabled);
+      if (message.type === "OWA_VEIL") setVeil(!state.veiled);
+      if (message.type === "OWA_SKIN") switchSkin(nextSkinId());
     });
-    browser.storage.local.get({ ao3mailEnabled: true, ao3mailLanguage: "zh" }).then(({ ao3mailEnabled, ao3mailLanguage }) => {
-      state.language = ao3mailLanguage === "en" ? "en" : "zh";
-      setEnabled(ao3mailEnabled, false);
-    });
+    store.get({
+      [KEYS.enabled]: true,
+      [KEYS.language]: "zh",
+      [KEYS.autoLock]: false,
+      [KEYS.marks]: { read: {}, pos: {} },
+      [KEYS.cache]: {},
+      [KEYS.skin]: DEFAULT_SKIN,
+      [KEYS.account]: null
+    }).then((data) => {
+      state.language = data[KEYS.language] === "en" ? "en" : "zh";
+      state.skin = SKINS[data[KEYS.skin]] ? data[KEYS.skin] : DEFAULT_SKIN;
+      state.autoLock = data[KEYS.autoLock] === true;
+      const marks = data[KEYS.marks] || {};
+      state.marks = { read: marks.read || {}, pos: marks.pos || {} };
+      state.cache = data[KEYS.cache] || {};
+      state.account = data[KEYS.account] || null;
+      trimCache();
+      refreshAccount();
+      setEnabled(data[KEYS.enabled], false);
+    }).catch(() => apply());
   } else {
+    refreshAccount();
     apply();
   }
 })();

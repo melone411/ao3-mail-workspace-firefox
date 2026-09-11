@@ -1,14 +1,16 @@
 {
   "manifest_version": 2,
-  "name": "AO3 Mail Workspace",
-  "version": "1.0.9",
-  "description": "把 AO3 页面显示成低调的桌面邮件工作界面。",
+  "name": "Mail Workspace",
+  "version": "1.4.1",
+  "description": "把当前页面显示成低调的桌面邮件工作界面。",
   "browser_specific_settings": {
     "gecko": {
       "id": "ao3-mail-workspace@local",
       "strict_min_version": "109.0",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   },
@@ -22,16 +24,23 @@
         "*://archiveofourown.org/*",
         "*://www.archiveofourown.org/*"
       ],
-      "css": ["mail-workspace.css"],
-      "js": ["content.js"],
+      "css": [
+        "mail-workspace.css"
+      ],
+      "js": [
+        "skins.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "background": {
-    "scripts": ["background.js"]
+    "scripts": [
+      "background.js"
+    ]
   },
   "browser_action": {
-    "default_title": "切换 AO3 邮件工作界面",
+    "default_title": "切换邮件工作界面",
     "default_icon": "icons/mail.svg"
   },
   "commands": {
@@ -40,6 +49,18 @@
         "default": "Alt+Shift+M"
       },
       "description": "切换邮件工作界面"
+    },
+    "toggle-lock-screen": {
+      "suggested_key": {
+        "default": "Alt+Shift+X"
+      },
+      "description": "显示 / 关闭同步锁屏"
+    },
+    "cycle-skin": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "切换界面风格"
     }
   },
   "icons": {

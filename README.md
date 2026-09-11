@@ -1,69 +1,101 @@
-# AO3 Mail Workspace for Firefox
+# AO3 Mail Workspace
 
-将 [Archive of Our Own（AO3）](https://archiveofourown.org/) 的网页转换成类似 Outlook 的邮件工作界面，同时保留原始作品正文、链接和常用 AO3 功能。
+把 [Archive of Our Own（AO3）](https://archiveofourown.org/) 显示成类似 Outlook 的邮件工作界面，同时保留作品正文、章节导航及常用 AO3 功能。
 
-当前版本：**v1.0.9**
+## 最新版本：v1.4.1
 
-## 功能
+> Firefox 用户无需下载 ZIP 或使用临时调试模式，直接在 Firefox 扩展商店搜索 **AO3 Mail Workspace** 即可安装。
 
-### 邮件式工作界面
+[Firefox 扩展商店安装](https://addons.mozilla.org/firefox/addon/ao3-mail-workspace/) · [下载 Edge / Chrome v1.4.1](https://github.com/melone411/ao3-mail-workspace-firefox/releases/tag/v1_4_1)
 
-- Outlook 风格的顶部栏、操作栏、文件夹、邮件列表和阅读窗格。
-- AO3 作品、搜索结果、Bookmark、系列与 History 条目会显示成邮件。
-- 原始 AO3 正文保留在阅读窗格内，作品链接和章节内容仍可正常访问。
+![AO3 Mail Workspace v1.4.1 浏览器安装教程](docs/install-guide-v1.4.1.png)
 
-### 搜索、浏览与阅读
+## Firefox 安装方法
 
-- 顶部“搜索所有邮件”可跳转到 AO3 全站作品搜索。
-- “筛选”可仅筛选当前已载入的邮件列表。
-- 邮件列表支持单击选择、双击打开；键盘选中后按 Enter 也能打开。
-- 每页显示 20 封邮件，提供“上一页”和“下一页”。
-- History 页面会自动读取所有分页，不再只显示当前页面的 20 条记录。
-- 可最小化文件夹与邮件列表，让阅读窗格占据更大空间。
-- AO3 章节导航按钮会自动居中和对齐。
+1. 打开 [Firefox 扩展商店中的 AO3 Mail Workspace](https://addons.mozilla.org/firefox/addon/ao3-mail-workspace/)，或在扩展商店搜索 **AO3 Mail Workspace**。
+2. 点击 **“添加到 Firefox”**。
+3. 在确认窗口中点击 **“添加”**。
+4. 打开或刷新 [AO3](https://archiveofourown.org/) 页面，邮件工作界面会自动启用。
 
-### 工具栏功能
+### 将按钮固定在 Firefox 工具栏
 
-- **新邮件**：打开 AO3 新建作品页面。
-- **删除**：执行所选 History 条目的 `Delete from History`。
-- **Bookmark**：添加或编辑当前作品的 AO3 Bookmark。
-- **标记**：执行 `Mark for Later` 或 `Mark as Read`。
-- **回复**：定位作品评论框；下拉菜单可打开评论列表。
-- **转发**：复制当前作品链接。
-- **RSS 源**：打开当前标签页、系列页等页面提供的 RSS/Atom 源。
+1. 点击浏览器右上角的拼图按钮。
+2. 找到 **AO3 Mail Workspace**。
+3. 点击右侧齿轮，选择 **“固定到工具栏”**。
 
-### 其他功能
+## Edge 安装方法
 
-- 中文/英文界面一键切换，语言选择会被保存。
-- 点击“恢复 AO3”可以立即返回原始 AO3 界面。
-- 点击 Firefox 工具栏图标或使用 `Alt + Shift + M` 切换界面。
-- 启用状态会被保存，下次访问 AO3 时自动沿用。
-- 仅作用于 `archiveofourown.org`，不连接第三方服务，不收集用户数据。
+1. 下载 [`ao3-workspace-edge-v1_4_1.zip`](https://github.com/melone411/ao3-mail-workspace-firefox/releases/download/v1_4_1/ao3-workspace-edge-v1_4_1.zip)。
+2. 将 ZIP **完整解压**到一个固定文件夹；安装后不要删除或移动这个文件夹。
+3. 在 Edge 地址栏输入 `edge://extensions`。
+4. 打开左侧的 **“开发人员模式”**。
+5. 点击 **“加载解压缩的扩展”**。
+6. 选择包含 `manifest.json` 的扩展文件夹。
+7. 打开或刷新 AO3 页面。
 
-## 安装
+## Chrome 安装方法
 
-### Firefox 临时安装
+1. 下载 [`ao3-workspace-chrome-v1_4_1.zip`](https://github.com/melone411/ao3-mail-workspace-firefox/releases/download/v1_4_1/ao3-workspace-chrome-v1_4_1.zip)。
+2. 将 ZIP **完整解压**到一个固定文件夹；安装后不要删除或移动这个文件夹。
+3. 在 Chrome 地址栏输入 `chrome://extensions`。
+4. 打开右上角的 **“开发者模式”**。
+5. 点击 **“加载已解压的扩展程序”**。
+6. 选择包含 `manifest.json` 的扩展文件夹。
+7. 打开或刷新 AO3 页面。
 
-1. 下载并解压 [`ao3-mail-workspace-firefox-v1.0.9-AMO.zip`](release/ao3-mail-workspace-firefox-v1.0.9-AMO.zip)。
-2. 在 Firefox 地址栏打开 `about:debugging#/runtime/this-firefox`。
-3. 点击“临时载入附加组件”。
-4. 选择解压目录中的 `manifest.json`。
-5. 打开或刷新 AO3 页面。
+### 将按钮固定在 Edge / Chrome 工具栏
 
-临时安装会在 Firefox 完全退出后被移除。长期安装应使用经过 Mozilla Add-ons 签名的版本。
+点击浏览器右上角的拼图按钮，在扩展列表中找到 **Mail Workspace**，再点击旁边的图钉。固定后可随时点击蓝色信封按钮切换界面。
 
-## 文件结构
+## 安装后如何使用
 
-- `manifest.json`：Firefox WebExtension 配置。
-- `content.js`：页面转换和功能逻辑。
-- `mail-workspace.css`：邮件工作界面与 AO3 阅读样式。
-- `background.js`：工具栏按钮和快捷键。
+- 进入 AO3 后，邮件工作界面会自动启用。
+- 点击工具栏中的蓝色信封图标，可切换原始 AO3 与邮件工作界面。
+- 顶部 **“搜索所有邮件”** 会跳转至 AO3 全站作品搜索。
+- 单击邮件可选中，双击邮件或按 `Enter` 可打开作品。
+- 收件箱右上角的 `«` 可隐藏文件夹和邮件列表，扩大阅读区域。
+- `EN / 中文` 可切换界面语言。
+- 页面右上角的 **“恢复 AO3”** 可立即返回原始界面。
+
+### 快捷键
+
+| 快捷键 | 功能 |
+| --- | --- |
+| `Alt + Shift + M` | 切换邮件工作界面 |
+| `Alt + Shift + X` | 显示或关闭同步锁屏 |
+| 快速按两次 `Esc` | 立即显示同步锁屏 |
+
+## 主要功能
+
+- Outlook 风格的顶部栏、工具栏、文件夹、邮件列表和阅读窗格。
+- AO3 作品、搜索结果、Bookmark、系列与 History 条目以邮件形式显示。
+- History 支持增量读取全部分页，并使用本地缓存及失败重试。
+- 邮件列表支持上一页、下一页、筛选、单击选择及双击打开。
+- 侧栏对应 AO3 用户面板，并显示 AO3 提供的真实计数。
+- Bookmark、History 删除、Mark for Later、评论、转发链接及 RSS 等操作对应 AO3 原生功能。
+- 支持中英文界面、阅读进度、真实已读状态和最小化阅读布局。
+- 支持手动同步锁屏，并可选择失焦时自动锁定。
+- 标签页标题与图标会随工作界面切换，关闭后自动还原。
+
+## v1.4.1 更新内容
+
+- 修复侧栏底部图标栏覆盖中间文件夹的问题。
+- 修复英文界面悬停时 AO3 原名不显示的问题。
+- 缩短三个过长的英文译名，减少侧栏文字被截断。
+- 仓库根目录源代码已同步至 v1.4.1。
+
+## 文件说明
+
+- `manifest.json`：Firefox 扩展配置。
+- `content.js`：页面接管、阅读记录、锁屏、History 抓取与分页逻辑。
+- `skins.js`：邮件工作界面结构及文案。
+- `mail-workspace.css`：界面及 AO3 阅读样式。
+- `background.js`：工具栏按钮与快捷键。
 - `icons/mail.svg`：扩展图标。
-- `release/`：可下载的打包版本。
 
 ## 隐私
 
-扩展不收集、存储或上传用户数据。扩展只在 AO3 域名下运行，并仅使用 Firefox 本地存储保存界面启用状态和语言选择。
+扩展只在 `archiveofourown.org` 域名下运行，不连接第三方服务，也不收集或上传用户数据。界面设置、阅读记录和分页缓存仅保存在浏览器本地。
 
 ## 许可证
 
